@@ -18,12 +18,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Instalar PyTorch (Versión CPU explícitamente para ahorrar gigabytes de imagen)
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 
-# Copiar el script de ingesta
-COPY src/ingest.py ./src/ingest.py
+# Copiar código de ingesta (incluye módulo rag/)
+COPY src/ ./src/
 
 # Crear carpetas de datos vacías por si acaso
 RUN mkdir -p /app/data/raw /app/data/chroma_db
 
 # El comando a ejecutar cuando se lanza el Job:
 # Fuerzo la descarga de Drive y la subida a GCP siempre
-CMD ["python", "src/ingest.py", "--download-drive", "--upload-db"]
+CMD ["python", "src/ingest.py", "--download-drive", "--upload-db", "--chunk-strategy", "both"]

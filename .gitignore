@@ -59,6 +59,9 @@ credentials.*
 # Generated docs (not the docs/ folder itself)
 docs/architecture/cosora_architecture_final.md
 docs/architecture/implementation_plan.md
+docs/experiments/*.md
+
 
 # Scratch
 scratch_outputs.txt
+*_notebooks.py
