@@ -112,7 +112,7 @@ Results
 consistent results but they could improve
 
 Example:
-[('renfe', 'ejecuta', 'trabajos')]
+[('Constructora', 'ejecuta', 'trabajos')]
 
 Experiment 3 — Graph Construction
 Hypothesis
@@ -129,7 +129,55 @@ Graph generated successfully
 Conclusions
 Graph depends heavily on relation quality
 
+##  Graph Querying and Friendly Question Answering
 
+After constructing the Knowledge Graph from construction reports using LLM-based extraction, an additional querying layer was developed to enable interactive exploration of the graph. This layer is based on Cypher, the query language of Neo4j, combined with a language model to generate human-readable answers.
+
+Cypher is designed to be intuitive and expressive, allowing users to describe graph structures using patterns that closely resemble how graphs are visually represented. Instead of using tables and joins, Cypher relies on pattern matching over nodes and relationships. The fundamental idea is to represent queries as graph patterns of the form:
+
+(node)-[relationship]->(node)
+
+This syntax directly reflects how entities are connected in the graph. For example, a relationship between a construction element and its state can be expressed as:
+
+(element)-[:ESTADO]->(state)
+
+Cypher queries are typically composed of two main clauses: MATCH and RETURN. The MATCH clause is used to define the graph pattern to search for, while the RETURN clause specifies the data that should be retrieved. For instance, a basic query in the construction domain could be:
+
+MATCH (e)-[:ESTADO]->(s)
+RETURN e.name, s.name
+
+This query retrieves all elements and their associated states from the graph. Similarly, more specific queries can be defined using conditions:
+
+MATCH (e)-[:ESTADO]->(s)
+WHERE s.name CONTAINS "ejecución"
+RETURN e.name
+
+This allows us to identify elements that are currently in execution. Another example in the domain of construction reports is:
+
+MATCH (o)-[:EJECUTA]->(a)
+RETURN o.name, a.name
+
+which retrieves which organizations execute which activities.
+
+The philosophy behind Cypher follows the idea of “specification by example”, meaning that queries describe concrete patterns to match in the graph rather than abstract rules. This makes the query process highly intuitive and aligned with how humans understand relationships in real-world systems.
+
+However, while Cypher provides structured outputs, these results are not directly suitable for non-technical users. To address this limitation, we integrate a language model that transforms graph query results into natural language.
+
+The complete pipeline follows this structure:
+
+User Question → Cypher Query → Graph Results → LLM → Natural Language Answer
+
+For example, a user might ask:
+
+¿Qué está en ejecución?
+
+The corresponding Cypher query retrieves relevant triples from the graph, such as elements linked to the state “en ejecución”. These structured results are then passed to the language model, which generates a human-readable answer like:
+
+“The slope and the foundation are currently under execution according to the construction reports.”
+
+This approach enables the transformation of the graph into an interactive and user-friendly system. Cypher provides precise access to structured knowledge, while the language model ensures that the output is understandable and useful for end users.
+
+As a result, the system supports both technical exploration and practical usage scenarios. It allows users to query construction knowledge, analyze relationships between elements, and obtain clear explanations without needing to understand graph query languages. The combination of Cypher and LLM-based generation therefore bridges the gap between structured data and human interpretation, making the Knowledge Graph a powerful tool for real-world decision support.
         
 
 
