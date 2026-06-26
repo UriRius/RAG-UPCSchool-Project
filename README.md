@@ -179,9 +179,81 @@ This approach enables the transformation of the graph into an interactive and us
 
 As a result, the system supports both technical exploration and practical usage scenarios. It allows users to query construction knowledge, analyze relationships between elements, and obtain clear explanations without needing to understand graph query languages. The combination of Cypher and LLM-based generation therefore bridges the gap between structured data and human interpretation, making the Knowledge Graph a powerful tool for real-world decision support.
         
+cypher = """
+MATCH (n)-[r]->(m)
+WHERE type(r) IN ["EJECUTA", "INICIA", "FINALIZA", "INSTALA", "DESMONTA"]
+RETURN m.name AS actividad, count(*) AS frecuencia
+ORDER BY frecuencia DESC
+LIMIT 10
+"""
+
+result = kg.query(cypher)
+
+print("Resultado Cypher:\n")
+print(result)
+
+Resultado Cypher:
+
+[{'actividad': 'instalación de chapa', 'frecuencia': 3}, {'actividad': 'impermeabilización con poliurea', 'frecuencia': 3}, {'actividad': 'andamiaje', 'frecuencia': 3}, {'actividad': 'Marquesina', 'frecuencia': 3}, {'actividad': 'marquesina vía 02', 'frecuencia': 2}, {'actividad': 'talud', 'frecuencia': 2}, {'actividad': 'correas', 'frecuencia': 2}, {'actividad': 'hinca de pilotes', 'frecuencia': 2}, {'actividad': 'andamio', 'frecuencia': 2}, {'actividad': 'actuaciones', 'frecuencia': 2}]
 
 
+graph_text = "\n".join([
+    f"{row['actividad']} → {row['frecuencia']}"
+    for row in result if row['actividad']
+])
 
+print(graph_text)
+
+instalación de chapa → 3
+impermeabilización con poliurea → 3
+andamiaje → 3
+Marquesina → 3
+marquesina vía 02 → 2
+talud → 2
+correas → 2
+hinca de pilotes → 2
+andamio → 2
+actuaciones → 2
+
+question = "¿Cuáles son las actividades más frecuentes en las actas de obra?"
+
+prompt = f"""
+Eres un asistente experto en análisis de actas de obra.
+
+Explica estos resultados del grafo en lenguaje natural.
+
+PREGUNTA:
+{question}
+
+DATOS:
+{graph_text}
+
+RESPUESTA:
+"""
+
+answer = generate_llm(prompt)
+
+print("Respuesta final:\n")
+print(answer)
+
+Respuesta final:
+
+De acuerdo con el análisis de las actas de obra, las actividades que más se repiten y por lo tanto son las más frecuentes en el proyecto son:
+
+*   **Instalación de chapa:** Aparece en 3 actas.
+*   **Impermeabilización con poliurea:** También aparece en 3 actas.
+*   **Andamiaje:** Es la actividad que más se registra, apareciendo en 3 actas.
+*   **Marquesina:**  Esta actividad y su variante "marquesina vía 02" aparecen en 3 actas cada una.
+
+Las siguientes actividades también son bastante comunes, apareciendo en 2 actas cada una:
+
+*   **Talud**
+*   **Correas**
+*   **Hinca de pilotes**
+*   **Andamio**
+*   **Actuaciones**
+
+En resumen, la instalación de chapa, la impermeabilización con poliurea y el andamiaje son las actividades que más se han realizado hasta el momento según los datos de las actas de obra.
 
 
 
