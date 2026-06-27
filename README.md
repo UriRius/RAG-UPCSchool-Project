@@ -453,7 +453,7 @@ The number of relations decreases significantly across processing stages because
 Experiment. SAPHER QUERIES
 ##  Graph QA Evaluation (Pipeline Questions)
 
-## 📊 Graph QA Evaluation (Pipeline Questions)
+##  Graph QA Evaluation (Pipeline Questions)
 
 | Question Type              | Pipeline Question                                                                 | Graph as Content (Semantic) | Graph as Database (Analytical) |
 |---------------------------|-----------------------------------------------------------------------------------|-----------------------------|--------------------------------|
@@ -469,7 +469,7 @@ Experiment. SAPHER QUERIES
 | **Contractor Activities**  | What activities are most frequent for the contractor (UTE)?                      | Good                        | Good (counts occurrences)      |
 | **Technical Impact**       | What is the impact of defects (e.g., mold, cracks) in the project?               | Good                        | Not measurable                 |
 | **Documentation (Complex)**| How does technical documentation affect project execution?                       | Weak                        | Not supported                  |
-``
+
 conclusions:
 
 This evaluation shows that different query strategies provide complementary capabilities.
@@ -478,12 +478,82 @@ enable counting and ranking.
 Graph querying performance depends on the type of question:
 semantic reasoning vs. quantitative analysis.
 
+##  Conclusions - Knowledge Graph
 
-REFERENCES
+The integration of a Knowledge Graph significantly improves the representation and usability of information extracted from construction reports. By structuring data as entities and relationships, the system is able to capture complex dependencies and real-world interactions that are difficult to model using raw text alone, but not all the relations because this firts graph is small. The idea is after the project, build a bigger graph.
+
+The use of structured prompting plays a key role in this process. Compared to a general prompt, the structured approach generates a higher number of entities and relations with greater consistency and lower noise. This results in a more reliable and semantically meaningful graph.
+
+The graph processing pipeline (parsing, cleaning, normalization, and deduplication) further enhances data quality. Although the number of relations decreases throughout this process, the final graph is significantly cleaner and more useful. This reduction reflects knowledge consolidation rather than information loss.
+
+Cypher queries enable efficient and precise retrieval of structured information from the graph. They are particularly effective for:
+- counting and ranking elements or activities  
+- identifying frequent patterns  
+- analyzing relationships between entities  
+
+However, Cypher outputs are inherently structured and not directly user-friendly. To address this limitation, a local language model (Gemma via Ollama) is used to transform query results into natural language explanations. This combination allows the system to provide both accurate and interpretable answers.
+
+The evaluation shows that:
+- semantic queries are effective for understanding relationships  
+- analytical queries are effective for quantitative insights  
+- both approaches are complementary and necessary  
+
+Overall, the Knowledge Graph transforms the system from a simple text retrieval tool into a structured reasoning system. It enables more precise, explainable, and domain-aware question answering, demonstrating the value of combining graph-based representations with LLM-based interpretation.
+The combination of structured knowledge graphs and language models provides a powerful framework for transforming unstructured domain-specific data into actionable insights.
+
+
+# REFERENCES
+
+# KGGen: Extracting Knowledge Graphs from Plain Text with Language Models
+Belinda Mo, Kyssen Yu, Joshua Kazdan, Joan Cabezas, Proud Mpala, Lisa Yu, Chris Cundy, Charilaos Kanatsoulis, Sanmi Koyejo
+	arXiv:2502.09956 [cs.CL]
+  
+# Retrieval-Augmented Generation with Graphs (GraphRAG)
+Published December 31st, 2024
+By Haoyu Han, Yu Wang, Harry Shomer, Kai Guo, Jiayuan Ding, Yongjia Lei, Mahantesh Halappanavar, Ryan A. Rossi, Subhabrata Mukherjee, Xianfeng Tang, Qi He, Zhigang Hua, Bo Long, Tong Zhao, Neil Shah, Amin Javari, Yinglong Xia, Jiliang Tang
+arXiv:2501.00309 [ cs.IR, cs.CL, cs.LG ] github:Graph-RAG/GraphRAG/
+
+# Unifying Large Language Models and Knowledge Graphs: A Roadmap
+Published June 14th, 2023
+By Shirui Pan, Linhao Luo, Yufei Wang, Chen Chen, Jiapu Wang, Xindong Wu
+arXiv:2306.08302 [ cs.CL, cs.AI ]
+
+# HybGRAG: Hybrid Retrieval-Augmented Generation on Textual and Relational Knowledge Bases
+Published December 20th, 2024
+By Meng-Chieh Lee, Qi Zhu, Costas Mavromatis, Zhen Han, Soji Adeshina, Vassilis N. Ioannidis, Huzefa Rangwala, Christos Faloutsos
+arXiv:2412.16311 [ cs.LG, cs.AI, cs.IR ]
+
+# GraphER: A Structure-aware Text-to-Graph Model for Entity and Relation Extraction
+Published April 18th, 2024
+By Urchade Zaratiana, Nadi Tomeh, Niama El Khbir, Pierre Holat, Thierry Charnois
+arXiv:2404.12491 [ cs.CL, cs.AI ] github:urchade/GraphER
+
+# G-Retriever: Retrieval-Augmented Generation for Textual Graph Understanding and Question Answering
+Published February 12th, 2024
+By Xiaoxin He, Yijun Tian, Yifei Sun, Nitesh V. Chawla, Thomas Laurent, Yann LeCun, Xavier Bresson, Bryan Hooi
+arXiv:2402.07630 [ cs.LG ] github:XiaoxinHe/G-Retriever
+Abstract
+
 Course deeplearning.ai 
-Knowledge Graphs for RAG
+# Knowledge Graphs for RAG
 https://www.deeplearning.ai/courses/knowledge-graphs-rag 
 
+https://nlp.stanford.edu/software/openie.html
+Software > Stanford OpenIE
+# Stanford Open Information Extraction
+
+# MICROSOFT GRAFHRAG
+https://www.ibm.com/es-es/think/topics/graphrag
+https://microsoft.github.io/graphrag/
+https://www.microsoft.com/en-us/research/project/graphrag/
+https://github.com/microsoft/graphrag
+
+
+# Tools to build visual graphs 
+https://www.yworks.com/yed-live/
+https://kumu.io/
+https://lite.gephi.org/
+https://cosmograph.app/
 
 
 
