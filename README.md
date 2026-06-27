@@ -1,4 +1,4 @@
-# COSORA Demo - RAG UPCSchool Project
+# COSORA Demo - RAG GRAPH UPCSchool Project
 
 ## 📌 About the Project
 This is a **Retrieval-Augmented Generation (RAG)** demo designed to analyze construction site meeting minutes ("actas de obra"). It allows users to ask natural language questions about construction progress and get answers backed by official documents.
