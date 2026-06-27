@@ -453,20 +453,23 @@ The number of relations decreases significantly across processing stages because
 Experiment. SAPHER QUERIES
 ##  Graph QA Evaluation (Pipeline Questions)
 
-| Question Type              | Pipeline Question                                                                 | Graph as Content (Semantic) | Graph as Database (Analytical) | Mixed Approach |
-|---------------------------|-----------------------------------------------------------------------------------|-----------------------------|--------------------------------|----------------|
-| **Construction Elements**  | Which construction elements appear most frequently in the graph?                 | Good                        | Good (counts occurrences)      |  Best         |
-| **Construction Process**   | What are the most common construction activities?                                | Good                        | Good (counts occurrences)      |  Best         |
-| **Work Relationships**     | How are different construction activities connected?                             | Partial                     | Not applicable                 |  Best         |
-| **Dependencies**           | Which relations (executes, requires, affects…) appear most frequently?           | Good                        | Good (counts occurrences)      |  Best         |
-| **Health & Safety**        | What factors affect health and safety on site?                                   | Good                        | Limited                        |  Best         |
-| **Safety Relations**       | Which activities require safety measures most frequently?                        | Good                        | Limited                        |  Best         |
-| **Safety Measures**        | Which elements require safety measures and why?                                  | Partial                     | Not applicable                 |  Best         |
-| **Occupational Risks**     | How do activities influence occupational risks?                                  | Partial                     | Not applicable                 |  Best         |
-| **Incidents**              | What problems appear and how are they connected?                                 | Good                        | Good (counting capability)     |  Best         |
-| **Contractor Activities**  | What activities are most frequent for the contractor (UTE)?                      | Good                        | Good (counts occurrences)      |  Best         |
-| **Technical Impact**       | What is the impact of defects (e.g., mold, cracks) in the project?               | Good                        | Not measurable                 |  Best         |
-| **Documentation (Complex)**| How does technical documentation affect project execution?                       | Weak                        | Not supported                  |  Limited      |
+## 📊 Graph QA Evaluation (Pipeline Questions)
+
+| Question Type              | Pipeline Question                                                                 | Graph as Content (Semantic) | Graph as Database (Analytical) |
+|---------------------------|-----------------------------------------------------------------------------------|-----------------------------|--------------------------------|
+| **Construction Elements**  | Which construction elements appear most frequently in the graph?                 | Good                        | Good (counts occurrences)      |
+| **Construction Process**   | What are the most common construction activities?                                | Good                        | Good (counts occurrences)      |
+| **Work Relationships**     | How are different construction activities connected?                             | Partial                     | Not applicable                 |
+| **Dependencies**           | Which relations (executes, requires, affects…) appear most frequently?           | Good                        | Good (counts occurrences)      |
+| **Health & Safety**        | What factors affect health and safety on site?                                   | Good                        | Limited                        |
+| **Safety Relations**       | Which activities require safety measures most frequently?                        | Good                        | Limited                        |
+| **Safety Measures**        | Which elements require safety measures and why?                                  | Partial                     | Not applicable                 |
+| **Occupational Risks**     | How do activities influence occupational risks?                                  | Partial                     | Not applicable                 |
+| **Incidents**              | What problems appear and how are they connected?                                 | Good                        | Good (counting capability)     |
+| **Contractor Activities**  | What activities are most frequent for the contractor (UTE)?                      | Good                        | Good (counts occurrences)      |
+| **Technical Impact**       | What is the impact of defects (e.g., mold, cracks) in the project?               | Good                        | Not measurable                 |
+| **Documentation (Complex)**| How does technical documentation affect project execution?                       | Weak                        | Not supported                  |
+``
 conclusions:
 
 This evaluation shows that different query strategies provide complementary capabilities.
