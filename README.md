@@ -546,7 +546,7 @@ https://nlp.stanford.edu/software/openie.html
 Software > Stanford OpenIE
 # Stanford Open Information Extraction
 
-# MICROSOFT GRAFHRAG
+# MICROSOFT GRAPHRAG
 https://www.ibm.com/es-es/think/topics/graphrag
 https://microsoft.github.io/graphrag/
 https://www.microsoft.com/en-us/research/project/graphrag/
