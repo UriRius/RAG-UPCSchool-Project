@@ -38,6 +38,10 @@ To run this project, you need to set up the following secrets in Cloud Run:
 ##  Project Overview
 
 This project builds a Knowledge Graph (KG) from construction site reports ("actas de obra") using NLP and LLM-based techniques.
+We use a KG, a text-to-kowledge-graph generator with the aim to leverage RAG Retrieval Augmented Generation extraction architecture. KG uses a LM Language Model LM_based extractor to read unstructured text and predict subject-predicate-object triples to capture entities and relationships.
+Interest in automated methods to produce structured text dates back to at least 2001 when large volumes of plain text began to flood on the Internet.
+Early work, like YAGO (KG extracted from WIKIPEDIA), used hard-coded rules. With the development of modern natural language processing hard-coded rules ceded to more avanced approaches based on Neural Networks. For instance, OpenIE.
+As early as 2015, there were believed that extracting KGs would go hand-in-hand with developing better language models. More recently, #transformer-based architectures can identify relationsships between entities leading to transformer-based KG extraction techniques.
 
 The pipeline extracts:
 - Entities (organizations, construction elements, installations, safety issues)
@@ -542,7 +546,7 @@ https://nlp.stanford.edu/software/openie.html
 Software > Stanford OpenIE
 # Stanford Open Information Extraction
 
-# MICROSOFT GRAFHRAG
+# MICROSOFT GRAPHRAG
 https://www.ibm.com/es-es/think/topics/graphrag
 https://microsoft.github.io/graphrag/
 https://www.microsoft.com/en-us/research/project/graphrag/
