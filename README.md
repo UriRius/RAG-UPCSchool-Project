@@ -34,6 +34,49 @@ To run this project, you need to set up the following secrets in Cloud Run:
 
 # Retrieval Experiments
 
+## Experiment 1 — Choosing the Semantic Model
+
+### Hypothesis
+The first experiment was choosing the semantic model used to create the embeddings. We evaluated two Spanish/multilingual models (`mrBERT` and `e5`) on the same query test set, expecting one to retrieve more relevant chunks than the other.
+
+### Setup
+- **Backends:** 2 (`mrBERT`, `e5`)
+- **Queries:** 8 (same test set as Experiment 2)
+- **Top-K:** 5
+- **Metrics:** RRF scores, unique docs in top-K, corpus coverage, latency.
+
+### Results
+
+| Backend | avg_top1_rrf_score | avg_mean_rrf_score | avg_unique_docs_in_topK | corpus_coverage (unique chunks) | avg_latency_ms |
+|---------|--------------------|--------------------|-------------------------|---------------------------------|----------------|
+| mrBERT  | 0.025854           | 0.022785           | 4.375                   | 26                              | **2010.87**    |
+| e5      | **0.032325**       | **0.029888**       | 3.375                   | 26                              | 6483.19        |
+
+Per-query detail:
+
+| # | Query                                                  | overlap_chunks@5 | overlap_docs@5 | mrbert_top1_score | e5_top1_score | mrbert_unique_docs | e5_unique_docs |
+|---|--------------------------------------------------------|------------------|----------------|-------------------|---------------|--------------------|----------------|
+| 0 | ¿Qué se decidió sobre el talud?                        | 0.0              | 0.000          | 0.024924          | 0.033333      | 4                  | 3              |
+| 1 | ¿Cuál es el estado del camino provisional?             | 0.0              | 0.250          | 0.022436          | 0.033333      | 5                  | 5              |
+| 2 | ¿Qué incidencias AR-29 aparecen?                       | 0.0              | 0.125          | 0.024348          | 0.030092      | 4                  | 5              |
+| 3 | ¿Cuáles son las incidencias más frecuentes…?           | 0.0              | 0.333          | 0.027418          | 0.030366      | 5                  | 3              |
+| 4 | ¿Qué responsable está asignado a las acciones…?        | 0.0              | 0.167          | 0.021775          | 0.033060      | 4                  | 3              |
+| 5 | ¿Qué se acordó sobre hormigonado de zapatas?           | 0.2              | 0.200          | 0.027390          | 0.032018      | 4                  | 2              |
+| 6 | Estado de las instalaciones de megafonía               | 0.4              | 0.400          | 0.029877          | 0.033060      | 4                  | 3              |
+| 7 | ¿Qué documentación debe aportar la UTE sobre…?         | 0.0              | 0.600          | 0.028665          | 0.033333      | 5                  | 3              |
+
+### Observations
+- `e5` produces higher RRF scores on every query (both top-1 and mean), indicating stronger ranking confidence.
+- `mrBERT` is ~3× faster (≈2.0 s vs ≈6.5 s avg latency) and surfaces slightly more unique documents in the top-K, but at lower relevance.
+- Both backends cover the same 26 unique chunks of the corpus.
+- The two models retrieve largely disjoint results (low overlap@5), confirming they rank by different signals.
+
+### Conclusions
+**E5 is better.**
+
+Multilingual-e5 is better because it is richer in its semantic embedding space, capturing meaning beyond exact keyword matches. `mrBERT` relies on morphological and lexical similarity, which is more effective for exact terms but not for paragraphs. The higher latency of `e5` is an acceptable trade-off for its retrieval quality, so it was selected as the production embedding model.
+
+
 ## Experiment 2 — Query Rewriting
 
 ### Hypothesis
