@@ -32,6 +32,34 @@ To run this project, you need to set up the following secrets in Cloud Run:
 - `DRIVE_FOLDER_ID`: The Google Drive folder ID containing your source documents.
 
 
+# Retrieval Experiments
+
+## Experiment 2 — Query Rewriting
+
+### Hypothesis
+We tested query rewriting with both retrieval backends (`mrBERT` and `e5`). `gpt-4o-mini` generated 3 semantic variants per query, under the hypothesis that model-generated queries would retrieve more relevant chunks than the original user query.
+
+### Setup
+- **Judge model:** `gpt-4o` (LLM-as-Judge)
+- **Queries:** 8
+- **Backends:** 2 (`mrBERT`, `e5`)
+- **Top-K:** 5
+- **Total API calls:** 80
+- Rewriting: 3 `gpt-4o-mini` semantic variants per query, fused via RRF.
+
+### Results
+
+| Backend | Precision@5 | MRR    | NDCG@5  | MAP    | Avg relevance |
+|---------|-------------|--------|---------|--------|---------------|
+| mrBERT  | 0.25        | 0.4375 | 0.4448  | 0.4097 | 0.400         |
+| e5      | **0.55**    | **0.6500** | **0.6262** | **0.6500** | **0.875** |
+
+
+### Conclusions
+**E5 + Rewriting is better.**
+
+Rewriting helps `e5` because the semantic variants explore neighboring regions of its embedding space, improving coverage. With `mrBERT`, the extra queries introduce noise and displace already well-positioned chunks. The `gpt-4o-mini` variants add no new morphological signal.
+
 
 #  Knowledge Graph Generation from Construction Reports
 
