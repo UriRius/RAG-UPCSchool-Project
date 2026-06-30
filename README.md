@@ -87,6 +87,192 @@ User Question → Cypher Query → Graph Results → LLM → Natural-Language An
 ```
 
 ---
+Graphs represent entities as nodes and the ways in which those entities relate to the world as relationships.
+KGs consist of a set of subject-predicate-object triples and have become a fundamental data structure for information retrieval. 
+To solve this problem, we propose KGGen, a text-to-knowledge-graph generator that leverages Retrieval Augmented Generatin systems (RAG) and an algorithm for entity and edge resolution to extract high-quality, dense KGs from text. First, KGGen uses an LM-based extractor to read unstructured text and predict subject-predicate-object triples to capture entities and relations; after extracting the triples, it applies a novel, iterative clustering algorithm to refine the raw graph. Inspired by crowd-sourcing strategies for entity resolution, KGGen identifies nodes that refer to the same underlying entities, and consolidates edges that have equivalent meanings.
+Entity and Relation Extraction
+The first stage takes unstructured text of construction site reports as input and produces an initial knowledge graph as extracted triples. We use a language model to provide structured output. The first step takes in source text and extracts a list of entities. Given the source text and entities list, the second step outputs a list of subject-predicate-object relations. 
+Aggregation
+After extracting triples from each source text, we collect all the unique entities and edges across all source graphs and combine them into a single graph. All entities and edges are normalized to be in lowercase letters only. The aggregation step reduces redundancy in the KG. Aggregation step does not require an LLM.
+Entity and Edge Resolution
+After extraction and aggregation, it typically have a raw graph containing duplicate or synonymous entities and possibly redundant edges. The resolution stage merges nodes and edges representing the same real-world entity or concept. The resolution process employs a two-stage approach combining embedding-based clustering with LLMbased de-duplication to efficiently handle large knowledge graphs. 
+First, all items in the graph are clustered. 
+Methodology
+1. Overview
+This project follows a graph-based information extraction methodology designed to transform unstructured construction reports into a structured knowledge representation.
+The approach consists of four main stages:
+1.	Document ingestion
+2.	Entity extraction
+3.	Relation extraction
+4.	Graph construction and consolidation
+Each stage is supported by Language Models (LLMs) and rule-based post-processing to ensure consistency and quality of the resulting knowledge graph.
+
+2. Document Ingestion and Preprocessing
+The input data consists of technical construction reports (actas and technical documents) in both .doc and .docx formats.
+Documents are processed using text extraction tools:
+•	python-docx for .docx
+•	textract for .doc
+The extracted content is converted into plain text, preserving as much structure as possible while removing formatting artifacts.
+To ensure efficiency and compatibility with LLMs, the text is truncated into manageable segments before further processing.
+
+3. Entity Extraction
+Entities are extracted using a prompt-based approach with a local Language Model (Ollama + Gemma 3).
+A structured prompt is designed to enforce:
+•	Controlled output format (comma-separated list)
+•	Domain-specific entity types
+•	Short and normalized entity names
+The LLM identifies relevant entities such as:
+•	construction elements
+•	organizations (e.g., UTE, DF)
+•	technical concepts
+•	actions and documentation
+A post-processing step removes:
+•	duplicates
+•	noisy tokens
+•	invalid entity strings
+This results in a clean set of entities representing the key concepts in each document.
+
+4. Relation Extraction
+Relationships between entities are extracted using a second LLM prompt.
+The prompt enforces a strict triple format:
+(entity1, relation, entity2)
+Additionally:
+•	a predefined list of allowed relations is provided
+•	the number of candidate entities is limited to improve precision
+•	instructions prevent explanations or free text
+The output is parsed using robust pattern matching to extract valid triples while filtering malformed responses.
+This step produces the core knowledge representation used to build the graph.
+
+5. Normalization and Deduplication
+To improve graph quality, a normalization and deduplication process is applied:
+Relation normalization
+Semantically equivalent relations are unified:
+•	"realiza" → "ejecuta"
+•	"comienza" → "inicio"
+•	"termina" → "finalizado"
+State prioritization
+Special handling is applied to state-related relations (estado):
+•	conflicting states are resolved using priority rules
+•	the most advanced state (e.g., "finalizado") is retained
+Duplicate removal
+Triples are deduplicated using normalized keys:
+(subject, relation, object)
+This ensures that the graph remains consistent and avoids redundancy.
+
+6. Graph Construction
+The final graph is constructed as:
+•	a set of nodes (entities)
+•	a set of directed edges (relations)
+Each triple is converted into:
+source → relation → target
+The resulting structure is stored in two formats:
+1.	In-memory representation 
+o	used for processing and querying
+2.	JSON format 
+o	exported for interoperability and visualization
+This graph serves as the foundation for both retrieval and analytical tasks.
+
+7. Integration with Retrieval Pipeline
+The constructed graph is integrated into a hybrid retrieval system:
+•	Dense retrieval (embeddings)
+•	Sparse retrieval (BM25)
+•	Graph-based retrieval (LLM over triples)
+Graph-based retrieval selects the most relevant triples for a given query and injects them into the prompt as structured context.
+This enhances the system by:
+•	improving reasoning
+•	adding explainability
+•	capturing relationships not present in raw text retrieval
+
+8. Summary
+The methodology combines:
+•	unstructured document processing
+•	LLM-based information extraction
+•	structured graph construction
+•	hybrid retrieval strategies
+This pipeline enables the transformation of construction reports into a reusable knowledge representation, supporting both semantic reasoning and analytical exploration.
+Graph-Based Analysis — Content vs Database Usage
+1. Graph as Content (Semantic Knowledge)
+In this stage, the extracted knowledge graph is used as a semantic content source, where each triple represents a meaningful piece of information derived from construction reports.
+The graph is composed of triples of the form:
+(subject, relation, object)
+These triples encode domain knowledge such as:
+•	incidents affecting construction elements
+•	pending actions
+•	technical issues described in the reports
+For example:
+(talud, estado, inestable)
+(UTE, solicita, documentación técnica)
+(acta AVO-03, contiene, incidencia)
+To demonstrate the use of the graph as content, the system performs a filtering process over the triples to identify those that contain keywords related to incidents (e.g., “incidencia”, “problema”, “defecto”, “pendiente”, “incumplimiento”).
+By aggregating these triples, it is possible to determine which reports (actas) contain the highest number of issues.
+This approach does not rely on strict database queries, but instead on the semantic interpretation of triples, making it suitable for integration with Language Models (LLMs) in a Graph-RAG pipeline.
+Additionally, the retrieved triples can be directly inspected to provide explainability, showing how specific conclusions are derived from the graph structure.
+2. Graph as Database (Structured Querying)
+In contrast, the knowledge graph can also be treated as a structured database, where nodes and relationships represent records that can be queried and aggregated.
+In this scenario, the graph is used similarly to a relational database:
+•	entities correspond to records
+•	relations correspond to links between records
+•	triples can be processed as rows of structured data
+To perform analytical queries, a filtering function is defined to identify which nodes correspond to construction reports (actas), typically based on naming patterns such as “AVO”, “ACTA”, or “DOB”.
+Then, incident-related triples are counted per report, producing a structured aggregation:
+Acta → Number of incidents
+This enables:
+•	ranking reports by number of issues
+•	generating summary tables
+•	performing statistical analysis
+•	visualizing distributions of incidents
+Unlike the Graph as Content approach, this method focuses on quantitative analysis, where the graph is treated as a dataset rather than a semantic knowledge source.
+
+3. Comparison of Both Approaches
+The same knowledge graph supports two complementary paradigms:
+Aspect	Graph as Content	Graph as Database
+Purpose	Semantic reasoning	Quantitative analysis
+Usage	Context for LLMs	Data aggregation
+Output	Relevant triples	Numerical results
+Interpretation	Flexible, contextual	Structured, deterministic
+Role in pipeline	RAG enhancement	Analytical queries
+
+This dual use demonstrates the versatility of the constructed knowledge graph:
+•	As content, it enhances language model reasoning by providing structured context
+•	As a database, it enables measurable insights and data-driven conclusions
+
+4. Conclusion
+This experiment shows that a knowledge graph extracted from construction reports can serve both as:
+1.	A semantic layer, supporting reasoning and contextual understanding in Graph-RAG systems
+2.	A data layer, supporting structured queries and statistical analysis
+The ability to switch between these two perspectives is a key advantage of graph-based systems, especially in domains where both qualitative interpretation and quantitative analysis are required.
+
+
+Querying Graphs: Cypher. A Graph query language.
+##  Graph Querying and Friendly Question Answering
+After constructing the Knowledge Graph from construction reports using LLM-based extraction, an additional querying layer was developed to enable interactive exploration of the graph. This layer is based on Cypher, the query language of Neo4j, combined with a language model to generate human-readable answers.
+Cypher is designed to be intuitive and expressive, allowing users to describe graph structures using patterns that closely resemble how graphs are visually represented. Instead of using tables and joins, Cypher relies on pattern matching over nodes and relationships. The fundamental idea is to represent queries as graph patterns of the form:
+(node)-[relationship]->(node)
+This syntax directly reflects how entities are connected in the graph. For example, a relationship between a construction element and its state can be expressed as:
+(element)-[:ESTADO]->(state)
+Cypher queries are typically composed of two main clauses: MATCH and RETURN. The MATCH clause is used to define the graph pattern to search for, while the RETURN clause specifies the data that should be retrieved. For instance, a basic query in the construction domain could be:
+MATCH (e)-[:ESTADO]->(s)
+RETURN e.name, s.name
+This query retrieves all elements and their associated states from the graph. Similarly, more specific queries can be defined using conditions:
+MATCH (e)-[:ESTADO]->(s)
+WHERE s.name CONTAINS "ejecución"
+RETURN e.name
+This allows us to identify elements that are currently in execution. Another example in the domain of construction reports is:
+MATCH (o)-[:EJECUTA]->(a)
+RETURN o.name, a.name
+which retrieves which organizations execute which activities.
+The philosophy behind Cypher follows the idea of “specification by example”, meaning that queries describe concrete patterns to match in the graph rather than abstract rules. This makes the query process highly intuitive and aligned with how humans understand relationships in real-world systems.
+
+However, while Cypher provides structured outputs, these results are not directly suitable for non-technical users. To address this limitation, we integrate a language model that transforms graph query results into natural language.
+The complete pipeline follows this structure:
+User Question → Cypher Query → Graph Results → LLM → Natural Language Answer
+For example, a user might ask:
+¿Qué está en ejecución?
+The corresponding Cypher query retrieves relevant triples from the graph, such as elements linked to the state “en ejecución”. These structured results are then passed to the language model, which generates a human-readable answer like:
+“The slope and the foundation are currently under execution according to the construction reports.”
+This approach enables the transformation of the graph into an interactive and user-friendly system. Cypher provides precise access to structured knowledge, while the language model ensures that the output is understandable and useful for end users.
+As a result, the system supports both technical exploration and practical usage scenarios. It allows users to query construction knowledge, analyze relationships between elements, and obtain clear explanations without needing to understand graph query languages. The combination of Cypher and LLM-based generation therefore bridges the gap between structured data and human interpretation, making the Knowledge Graph a powerful tool for real-world decision support.
+
 
 ## 3. How to Run the Code
 
