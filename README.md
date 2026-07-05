@@ -141,18 +141,8 @@ The resulting dataset was split into training, validation, and test sets. During
 
 The reranker is trained using the **InfoNCE** loss, formulated over the relevance scores computed for all query–chunk pairs within each batch. 
 
-$$
-\mathcal{L}_{\mathrm{InfoNCE}}
-=
--\frac{1}{B}
-\sum_{i=1}^{B}
-\log
-\frac{
-\exp\left(\frac{s_{ii}}{T}\right)
-}{
-\sum_{j=1}^{B}
-\exp\left(\frac{s_{ij}}{T}\right)
-}
+$$ 
+L_ {\text{InfoNCE}}= \frac{-1}{N}\sum_{i=1}^{n}log\frac{\exp{\frac{s_{\text{ii}}}{T}}}{\sum_{i=1}^{n}\exp{\frac{s_{\text{ij}}}{T}}} 
 $$
 
 The objective encourages the model to assign higher scores to positive pairs while suppressing scores for in-batch negatives, thereby learning a discriminative notion of relevance tailored to the target domain.
