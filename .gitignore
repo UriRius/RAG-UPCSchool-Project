@@ -69,4 +69,13 @@ tmp_*
 scripts/_*
 
 # Model weights (serve from GCS)
-rr_model/*.pt
+rr_model/
+
+# Ad-hoc debug / experiment scripts (not main pipeline)
+scripts/test_*.py
+scripts/smoke_*.py
+scripts/inspect_*.py
+scripts/analyze_*.py
+scripts/check_chunk_alignment.py
+scripts/drive_phase0_*.py
+scripts/sync_tristan_*.py
