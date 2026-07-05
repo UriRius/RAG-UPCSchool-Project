@@ -1,82 +1,159 @@
-# COSORA — RAG & Knowledge Graph over Construction Site Visit Reports
+# RAG & Knowledge Graph over Construction Site Visit Reports
 
-> **Retrieval-Augmented Generation (RAG)** + **Knowledge Graph (KG)** demo that answers natural-language
-> questions about construction site meeting minutes (*"actas de obra"*), backed by the official documents.
+**Retrieval-Augmented Generation (RAG)** + **Knowledge Graph (KG)** system that answers natural-language
+questions about construction site meeting minutes (*"actas de obra"*), backed by the official documents.
 
 **🔗 Repository:** https://github.com/UriRius/RAG-UPCSchool-Project
 
-Developed for **UPCSchool**, this project demonstrates how to integrate AI retrieval and structured
-knowledge extraction into engineering and construction workflows. It has two complementary components:
-
-1. A deployed **hybrid RAG demo** (Streamlit on GCP) that retrieves relevant document chunks and generates answers.
-2. A **Knowledge Graph pipeline** (Graph-RAG) that extracts entities and relations from the same documents
-   and exposes them for semantic and analytical querying.
-
----
+Developed for **UPCSchool**, this project demonstrates how Retrieval-Augmented Generation (RAG) and knowledge graph techniques can be applied to extract and retrieve information from construction site visit reports. 
 
 # Table of Contents
 
-1. [About the Project](#1-about-the-project)
-2. [System Overview](#2-system-overview)
-3. [System Architecture](#3-system-architecture)
-4. [How to Run the Code](#4-how-to-run-the-code)
-   - [4.4 Run the demo app locally](#44-run-the-demo-app-locally)
-   - [4.7 Deploy to GCP](#47-deploy-to-gcp-optional)
-5. [Experiments](#5-experiments)
-   - [Part A — Retrieval](#part-a--retrieval-experiments)
-   - [Part B — Knowledge Graph](#part-b--knowledge-graph-experiments)
-6. [Overall Conclusions](#6-overall-conclusions)
-7. [References](#7-references)
-8. [Deliverables](#8-deliverables)
+1. [About the project](#1.-about-the-project)
+2. [System overview](#2.-system-overview)
+3. [System architecture](#3.-system-architecture)
+   - [Retrieval pipeline](#3.1-rag-retrieval-pipeline)
+   - [Knowledge graph pipeline](#3.2-knowledge-graph-pipeline)
+4. [How to run the code](#4.-how-to-run-the-code)
+5. [Experiments](#5.-experiments)
+   - [Retrieval](#5.1-retrieval-experiments)
+   - [Knowledge graph](#5.2-knowledge-graph-experiments)
+6. [Overall conclusions](#6.-overall-conclusions)
+7. [References](#7.-references)
+8. [Deliverables](#8.-deliverables)
 
----
 
-# 1. About the Project
+# 1. About the project
 
-Construction projects generate large volumes of unstructured meeting minutes documenting decisions,
-incidents, responsibilities and progress. COSORA makes this knowledge queryable in natural language.
+Construction projects generate large volumes of unstructured site visit reports documenting decisions, incidents, responsibilities, and progress. As these documents accumulate over the lifetime of a project, locating specific information becomes increasingly difficult. The proposed system enables users to access this information through natural language queries, removing the need to manually inspect large collections of reports.
 
-The system can answer questions such as:
+<p align="center">
+  <img src="./images/actas.png" width="1200"><br>
+  <em>Figure 1. Example of construction site visit report</em>
+</p>
 
-- *¿Qué se decidió sobre el talud?*
-- *¿Cuál es el estado del camino provisional?*
-- *¿Qué documentación debe aportar la UTE sobre estabilidad?*
-
-It combines **hybrid retrieval** (dense embeddings + BM25) for text answers with a **Knowledge Graph**
-for structured reasoning, ranking and explainability.
 
 # 2. System overview
 
-Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by retrieving relevant information from external knowledge sources during inference and incorporating it into the prompt. By complementing the model's parametric knowledge with external context, RAG addresses two key limitations of LLMs: their inability to access information beyond their training cutoff and their lack of access to organization-specific knowledge.
+Retrieval-Augmented Generation (RAG) enhances Large Language Models (LLMs) by retrieving relevant information from external knowledge sources at inference time and incorporating it into the input context. By augmenting the model’s parametric knowledge with external data, RAG mitigates key limitations of LLMs, such as their lack of access to information beyond their training cutoff and their inability to leverage organization-specific knowledge.
 
-In this work, we focus on the latter by designing a RAG-based system capable of answering questions about the information contained in the construction site visit reports produced by a particular company.
+In this work, we focus on the latter limitation by designing a RAG-based system capable of answering questions over construction site visit reports generated within a specific organization.
 
-Traditional RAG systems rely on chunking documents and retrieving the most relevant passages using either semantic similarity (through vector embeddings) or lexical similarity (through keyword-based retrieval methods). In our approach, this retrieval process is complemented by extracting additional contextual information from a knowledge graph automatically constructed from the same collection of documents. Both the retrieved document chunks and the graph-derived context are then provided to the LLM to support answer generation.
+Traditional RAG systems rely on chunking documents and retrieving relevant passages using either semantic similarity (via dense vector embeddings) or lexical similarity (via keyword-based retrieval methods). In the proposed system, these complementary retrieval strategies are combined to produce a high-recall set of candidate chunks. This candidate set is subsequently refined by a cross-encoder reranking model, which is fine-tuned on query–chunk pairs derived from a corpus of construction-related documents. The reranker jointly encodes each query–chunk pair to estimate document relevance, selecting the most relevant chunks for answer generation.
+
+In addition, the retrieval process is enriched with a **knowledge graph** automatically constructed from the same document collection, providing complementary structured knowledge. The reranked chunks, together with the graph-derived context, are finally supplied as context to the LLM to generate the response.
 
 
-# 3. System Architecture
+# 3. System architecture
 
-## 3.1 RAG Retrieval Pipeline
+<p align="center">
+  <img src="./images/cosora_architecture.png" width="1200"><br>
+  <em>Figure 2. System architecture</em>
+</p>
 
-A **serverless architecture on Google Cloud Platform (GCP)** for low cost and high scalability:
+## 3.1 RAG retrieval pipeline
 
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | [Streamlit](https://streamlit.io/) on Google Cloud Run |
-| **Vector DB** | [ChromaDB](https://www.trychroma.com/) |
-| **Embeddings** | `intfloat/multilingual-e5-base` (runs locally for hybrid search) |
-| **Sparse retrieval** | BM25 (`rank_bm25`) |
-| **Fusion** | Reciprocal Rank Fusion (RRF) |
-| **Generation (LLM)** | OpenAI API (`gpt-4o-mini`) |
+The RAG pipeline is composed of five main modules or subsystems corresponding to the following stages: knowledge preparation, retrieval, reranking, response generation, and orchestration. These components are supported by a shared tokenization module that ensures consistent preprocessing across the pipeline.
 
-**Data pipeline (Cloud Run Job):**
+* Ingestion, chunking and indexing
+* Retrieval
+* Reranking
+* Response generation
+* Orchestration
 
-1. Downloads `.doc` / `.docx` files from Google Drive.
-2. Extracts text using `antiword` and `python-docx`.
-3. Chunks the text, creates embeddings, and builds the ChromaDB database.
-4. Uploads the ready-to-use database to Google Cloud Storage.
+In addition to the core pipeline, a Query Rewriting module has been introduced to generate alternative query formulations using an LLM. This module enables systematic evaluation of how query reformulations affect retrieval effectiveness across multiple metrics, including recall and precision.
 
-## 3.2 Knowledge Graph database
+### Ingestion, chunking and indexing
+The **Ingestion, Chunking, and Indexing** module is responsible for building the system's knowledge base by transforming the input documents into searchable representations for semantic and lexical retrieval.
+
+Different chunking strategies were considered for document segmentation, including **character-based** chunking, which splits the text into fixed-size character sequences, **token-based** chunking, which divides the text into fixed-size token sequences, and **table row-based** chunking, where each chunk corresponds to the content of a single row. Since the visit reports are organized as tables, the final system adopts table row-based chunking, as each row naturally represents a coherent semantic unit of information. By leveraging this existing structure, the resulting chunks are more meaningful and self-contained, leading to higher-quality representations for retrieval.
+
+Once the documents have been segmented, the resulting chunks are tokenized using the shared **Tokenizer Module** (based on SentencePiece), and encoded into dense vector embeddings using the encoder-only language model ([multilingual E5 base](https://huggingface.co/intfloat/multilingual-e5-base)).
+
+The embeddings are then stored in the vector database ([Chroma](https://docs.trychroma.com/docs/overview/introduction)) to support semantic retrieval. Chroma uses an HNSW (Hierarchical Navigable Small World) graph-based index to efficiently perform approximate nearest neighbor (ANN) search, retrieving the _k_ nearest neighbors in the embedding space.
+
+<p align="center">
+  <img src="./images/hnsw.png" width="750"><br>
+  <em>Figure 3. HNSW search algorithm</em>
+</p>
+
+The system also supports lexical retrieval based on the BM25 ranking function. As Chroma does not natively support BM25 indexing, the module constructs and stores a separate inverted index on disk. For each term $t_i$, the index stores its posting list, containing the identifiers of the indexed documents (i.e., chunks) in which the term appears together with the corresponding term frequencies, $TF(t_i,d)$. It also maintains the corpus-level statistics required by BM25, including the inverse document frequency, $IDF(t_i)$, the average document length, individual document lengths, and the BM25 parameters $(k_1,b)$, enabling efficient lexical retrieval and document ranking.
+
+$$
+\begin{aligned}
+&t_i \in V \\
+&TF(t_i,d)=\text{term frequency of } t_i \text{ in document } d \\
+&DF(t_i)=|\{d \in DC : t_i \in d\}| \\
+&IDF(t_i)=\log\left(1+\frac{|DC|-DF(t_i)+0.5}{DF(t_i)+0.5}\right) \\
+&1.2 \leq k_1 \leq 2.0 \\
+&0.3 \leq b \leq 0.9
+\end{aligned}
+$$
+
+This module is demonstrated in `notebooks/chunking.ipynb` and `feature_extraction_and_indexing.ipynb`.
+
+
+### Retrieval
+
+The **Retrieval Subsystem** is responsible for retrieving pieces of the knowledge base (i.e., chunks) that form the relevant context for a given query. 
+
+It is composed of three modules: **Semantic Retrieval**, **Lexical Retrieval**, and **Rank Fusion** based on Reciprocal Rank Fusion (RRF), followed by a final reranking stage.
+
+Information retrieval follows a hybrid paradigm that combines two complementary approaches: semantic and lexical retrieval. Semantic retrieval is a dense retrieval method that encodes both queries and documents into dense vector representations and retrieves relevant chunks based on vector similarity. By capturing semantic similarity beyond exact lexical overlap, it is particularly effective for paraphrases, synonyms, and semantically related expressions, typically improving recall. In contrast, lexical retrieval is a sparse retrieval method that operates over discrete terms in a bag-of-words representation, relying on exact term matching and term frequency statistics. This makes it particularly effective for queries containing technical terminology, named entities, or specific identifiers, often improving precision. These complementary properties motivate a hybrid retrieval strategy that balances recall and precision across diverse query types.
+
+The **Semantic Retrieval** module encodes queries using the shared **Tokenizer Module** and the same encoder-only language model used for document embeddings. It performs similarity search over a vector database using an Approximate Nearest Neighbor (ANN) algorithm implemented via a Hierarchical Navigable Small World (HNSW) index, enabling efficient retrieval in high-dimensional embedding spaces while preserving high recall.
+
+In parallel, the **Lexical Retrieval** module operates over a separate inverted index stored on disk, since the vector database (Chroma) does not natively support sparse retrieval. Given a query, retrieval is performed via exact term matching over query terms, and documents are ranked using the BM25 scoring function, which incorporates term frequency, inverse document frequency, and document length normalization.
+
+The outputs of semantic and lexical retrieval are combined by the **Rank Fusion module**, which produces a unified ranking from both ranked lists. Two fusion strategies are considered: Reciprocal Rank Fusion (RRF) and Linear Score Fusion (LSF). RRF aggregates rankings based on the reciprocal of document ranks, while LSF combines normalized retrieval scores through a weighted linear combination. In this work, RRF is selected due to its simplicity, robustness, and independence from score normalization, making it particularly well-suited for heterogeneous retrieval signals.
+
+$$
+\begin{aligned}
+&RRF = \frac{1}{R_{\text{semantic}}} + \frac{1}{R_{\text{lexical}}}\\
+&LSF = \alpha S^N_{\text{sem}} + (1-\alpha) S^N_{\text{lex}}\, ; \qquad
+S^N_{\text{sem}} = \frac{S_{\text{sem}}(D)-S^{\text{m}}_{\text{sem}}(D)}
+{S^{\text{M}}_{\text{sem}}(D)-S^{\text{m}}_{\text{sem}}(D)}\, ; \qquad
+S^N_{\text{lex}} = \frac{S_{\text{lex}}(D)-S^{\text{m}}_{\text{lex}}(D)}
+{S^{\text{M}}_{\text{lex}}(D)-S^{\text{m}}_{\text{lex}}(D)}
+\end{aligned}
+$$
+
+Finally, the top-_k_ chunks retrieved by the hybrid retrieval stage are passed to a reranking model trained to estimate query–document relevance. This reranking stage constitutes the final step of the Retrieval Subsystem and refines the initial ranking, improving precision and producing the final ordered set of chunks used as context for downstream generation.
+
+This module is demonstrated in `hybrid_retrieval.ipynb`.
+
+### Reranking
+
+Although the hybrid retrieval stage efficiently identifies a set of potentially relevant candidate chunks, the similarity scores produced by dense and lexical retrieval provide only an indirect approximation of document relevance. Dense retrieval estimates relevance through embedding similarity, whereas lexical retrieval relies on exact term matching and BM25 scoring. While both approaches are highly effective for candidate generation, neither explicitly models the interactions between the query and the retrieved document. Consequently, the highest-ranked chunks are not always the most relevant ones for answering the user's query.
+
+To address this limitation, the retrieved top-_k_ candidate chunks are passed to a cross-encoder reranker. Unlike bi-encoders, which encode queries and documents independently before comparing their vector representations, a cross-encoder jointly encodes the query and the document as a single input sequence. This allows the Transformer's attention mechanism to explicitly model interactions between tokens from both texts and directly estimate document relevance rather than approximating it through embedding similarity. As a result, cross-encoders typically produce substantially more accurate relevance estimates, making them the standard choice for the reranking stage of modern retrieval systems.
+
+Although pretrained cross-encoders specifically designed for reranking, such as those of the BGE family, could have been adopted directly, this work instead constructs a task-specific reranker by extending the same multilingual E5 encoder used during the retrieval stage with an MLP scoring head. During fine-tuning, only the last two Transformer layers of the encoder and the scoring head are updated, while all remaining encoder parameters remain frozen. This design preserves architectural consistency across retrieval and reranking, allowing both stages to rely on the same multilingual semantic representations while adapting the model to the notion of relevance required by the target domain. At the same time, restricting training to a small subset of the parameters significantly reduces computational cost and the risk of overfitting, making the approach both efficient and well suited to domain-specific reranking.
+
+Despite their superior ranking accuracy, cross-encoders are computationally too expensive to be applied directly to every document in the collection, as they require a complete forward pass for each query-document pair. For this reason, they are employed only after the hybrid retrieval stage has reduced the search space to a high-recall candidate set. The reranker then refines this candidate set and selects the highest-ranked _n_ chunks, which are ultimately provided to the language model as contextual evidence for answer generation. This two-stage architecture combines the scalability and recall of hybrid retrieval with the superior relevance estimation capabilities of cross-encoder reranking while keeping the computational cost manageable.
+
+This module is demonstrated in `dataset_generation.ipynb` and `e5_reranker.ipynb`. In turn, the module is provided as a e5_reranker.py file so that the fine-tuned reranker can be imported in the application.
+
+#### Reranker training
+
+Since no manually annotated query–document relevance dataset was available for the target domain, a synthetic training corpus was constructed from a collection of construction-related documents. Chunks were first extracted from the documents, and for each chunk, `gpt-4o-mini` was prompted to generate a natural-language query whose answer could be found in that chunk. This procedure produced synthetic positive query–chunk pairs, where each query is aligned with its source chunk.
+
+The resulting dataset was split into training, validation, and test sets. During training, the data was organized into mini-batches. Each batch was then augmented using an in-batch negatives strategy: for a given query, its corresponding chunk acts as the positive example, while all other chunks within the same batch are treated as negative candidates. This approach increases the number of effective negatives without requiring explicit negative sampling or additional annotation effort.
+
+The reranker is trained using the **InfoNCE** loss, formulated over the relevance scores computed for all query–chunk pairs within each batch. 
+
+$$ 
+L_ {\text{InfoNCE}}= \frac{-1}{N}\sum_{i=1}^{n}log\frac{\exp{\frac{s_{\text{ii}}}{T}}}{\sum_{i=1}^{n}\exp{\frac{s_{\text{ij}}}{T}}} 
+$$
+
+The objective encourages the model to assign higher scores to positive pairs while suppressing scores for in-batch negatives, thereby learning a discriminative notion of relevance tailored to the target domain.
+
+<p align="center">
+  <img src="./images/reranker_training.png" width="1200"><br>
+  <em>Figure 4. Reranker training</em>
+</p>
+
+## 3.2 Knowledge graph pipeline
 
 A graph-based information-extraction methodology that turns unstructured reports into a structured
 knowledge representation, following four stages:
@@ -104,13 +181,13 @@ KGs consist of a set of subject-predicate-object triples and have become a funda
 
 To solve this problem, we propose KGGen, a text-to-knowledge-graph generator that leverages Retrieval Augmented Generatin systems (RAG) and an algorithm for entity and edge resolution to extract high-quality, dense KGs from text. First, KGGen uses an LM-based extractor to read unstructured text and predict subject-predicate-object triples to capture entities and relations; after extracting the triples, it applies a novel, iterative clustering algorithm to refine the raw graph. Inspired by crowd-sourcing strategies for entity resolution, KGGen identifies nodes that refer to the same underlying entities, and consolidates edges that have equivalent meanings.
 
-### Entity and Relation Extraction
+### Entity and relation extraction
 The first stage takes unstructured text of construction site reports as input and produces an initial knowledge graph as extracted triples. We use a language model to provide structured output. The first step takes in source text and extracts a list of entities. Given the source text and entities list, the second step outputs a list of subject-predicate-object relations. 
 
 ### Aggregation
 After extracting triples from each source text, we collect all the unique entities and edges across all source graphs and combine them into a single graph. All entities and edges are normalized to be in lowercase letters only. The aggregation step reduces redundancy in the KG. Aggregation step does not require an LLM.
 
-### Entity and Edge Resolution
+### Entity and edge resolution
 After extraction and aggregation, it typically have a raw graph containing duplicate or synonymous entities and possibly redundant edges. The resolution stage merges nodes and edges representing the same real-world entity or concept. The resolution process employs a two-stage approach combining embedding-based clustering with LLMbased de-duplication to efficiently handle large knowledge graphs. 
 
 First, all items in the graph are clustered.
@@ -127,15 +204,15 @@ The approach consists of four main stages:
 
 Each stage is supported by Language Models (LLMs) and rule-based post-processing to ensure consistency and quality of the resulting knowledge graph.
 
-#### 2. Document Ingestion and Preprocessing
-The input data consists of technical construction reports (actas and technical documents) in both .doc and .docx formats.
+#### 2. Document ingestion and preprocessing
+The input data consists of technical construction reports (actas and technical documents) in the docx formats.
 Documents are processed using text extraction tools:
-•	python-docx for .docx
-•	textract for .doc
+- python-docx for .docx
+- textract for .doc
 The extracted content is converted into plain text, preserving as much structure as possible while removing formatting artifacts.
 To ensure efficiency and compatibility with LLMs, the text is truncated into manageable segments before further processing.
 
-#### 3. Entity Extraction
+#### 3. Entity extraction
 Entities are extracted using a prompt-based approach with a local Language Model (Ollama + Gemma 3).
 
 A structured prompt is designed to enforce:
@@ -159,7 +236,7 @@ A post-processing step removes:
 
 This results in a clean set of entities representing the key concepts in each document.
 
-#### 4. Relation Extraction
+#### 4. Relation extraction
 Relationships between entities are extracted using a second LLM prompt.
 
 The prompt enforces a strict triple format:
@@ -174,7 +251,7 @@ Additionally:
 The output is parsed using robust pattern matching to extract valid triples while filtering malformed responses.
 This step produces the core knowledge representation used to build the graph.
 
-#### 5. Normalization and Deduplication
+#### 5. Normalization and deduplication
 To improve graph quality, a normalization and deduplication process is applied:
 
 ##### Relation normalization
@@ -195,7 +272,7 @@ Triples are deduplicated using normalized keys:
 (subject, relation, object)
 This ensures that the graph remains consistent and avoids redundancy.
 
-#### 6. Graph Construction
+#### 6. Graph construction
 The final graph is constructed as:
 
 - a set of nodes (entities)
@@ -216,7 +293,7 @@ Used for processing and querying
 Exported for interoperability and visualization
 This graph serves as the foundation for both retrieval and analytical tasks.
 
-#### 7. Integration with Retrieval Pipeline
+#### 7. Integration with retrieval pipeline
 
 The constructed graph is integrated into a hybrid retrieval system:
 
@@ -241,9 +318,9 @@ The methodology combines:
 
 This pipeline enables the transformation of construction reports into a reusable knowledge representation, supporting both semantic reasoning and analytical exploration.
 
-### Graph-Based Analysis — Content vs Database Usage
+### Graph-based analysis — content vs database usage
 
-#### 1. Graph as Content (Semantic Knowledge)
+#### 1. Graph as content (semantic knowledge)
 In this stage, the extracted knowledge graph is used as a semantic content source, where each triple represents a meaningful piece of information derived from construction reports.
 
 The graph is composed of triples of the form:
@@ -268,7 +345,7 @@ This approach does not rely on strict database queries, but instead on the seman
 
 Additionally, the retrieved triples can be directly inspected to provide explainability, showing how specific conclusions are derived from the graph structure.
 
-#### 2. Graph as Database (Structured Querying)
+#### 2. Graph as database (structured querying)
 In contrast, the knowledge graph can also be treated as a structured database, where nodes and relationships represent records that can be queried and aggregated.
 
 In this scenario, the graph is used similarly to a relational database:
@@ -292,7 +369,7 @@ This enables:
 
 Unlike the Graph as Content approach, this method focuses on quantitative analysis, where the graph is treated as a dataset rather than a semantic knowledge source.
 
-#### 3. Comparison of Both Approaches
+#### 3. Comparison of both approaches
 The same knowledge graph supports two complementary paradigms:
 Aspect	Graph as Content	Graph as Database
 Purpose	Semantic reasoning	Quantitative analysis
@@ -314,8 +391,7 @@ This experiment shows that a knowledge graph extracted from construction reports
 
 The ability to switch between these two perspectives is a key advantage of graph-based systems, especially in domains where both qualitative interpretation and quantitative analysis are required.
 
-## Querying Graphs: Cypher. A Graph query language.
-### Graph Querying and Friendly Question Answering
+### Querying graphs: Cypher. A graph query language
 
 After constructing the Knowledge Graph from construction reports using LLM-based extraction, an additional querying layer was developed to enable interactive exploration of the graph. 
 
@@ -378,20 +454,13 @@ This approach enables the transformation of the graph into an interactive and us
 As a result, the system supports both technical exploration and practical usage scenarios. It allows users to query construction knowledge, analyze relationships between elements, and obtain clear explanations without needing to understand graph query languages. The combination of Cypher and LLM-based generation therefore bridges the gap between structured data and human interpretation, making the Knowledge Graph a powerful tool for real-world decision support.
 
 
-## 4. How to Run the Code
-
-This section covers the **Streamlit demo**, local setup, data pipelines and **GCP deployment**.
-
-**Live demo (production):** https://cosora-demo-475080291256.europe-west1.run.app/
+## 4. How to run the code
 
 ### 4.1 Prerequisites
 
-- **Python 3.10+**
-- **OpenAI API key** — answer generation, optional query rewriting and Cypher LLM route
-- **Prebuilt index (recommended)** — download Chroma + BM25 + reranker from GCS (see §4.4), or rebuild with `src/ingest.py`
-- **Neo4j Aura** (optional) — required for Graph RAG modes (`cypher_transversal`); classic hybrid RAG works without it
-- **GCP credentials** (optional) — only for `download_db.py`, ingestion upload and Cloud Run deploy (`gcloud` CLI + service account / ADC)
-- **Ollama + `gemma3`** (optional) — only for offline KG extraction notebooks, not for the Streamlit demo
+- Python 3.10+
+- An OpenAI API key
+- (Optional, for the KG pipeline) [Ollama](https://ollama.com/) with `gemma3` pulled, and optionally Neo4j
 
 ### 4.2 Install dependencies
 
@@ -405,144 +474,76 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 
-pip install -r requirements.txt
+pip install -r Requirements.txt
 ```
-
-> `Requirements.txt` is kept as an alias of `requirements.txt` for backward compatibility.
 
 ### 4.3 Configure environment variables
 
-Copy [`.env.example`](.env.example) to `.env` and fill in the values:
+Copy `.env.example` to `.env` and fill in the values:
 
-| Variable | Required for | Description |
-|----------|--------------|-------------|
-| `OPENAI_API_KEY` | Demo | LLM generation (and Cypher LLM route when enabled) |
-| `APP_PASSWORD` | Demo | Password for the Streamlit login screen |
-| `GCP_BUCKET_NAME` | Download / ingest / deploy | GCS bucket (`rag-actas-db-bucket` in production) |
-| `CHROMA_PATH` | Demo | Local path to ChromaDB (default `./data/chroma_db`) |
-| `CHROMA_COLLECTION` | Demo | Override collection name (prod uses `cosora_actas_e5`) |
-| `RR_MODEL_PATH` | Demo | Fine-tuned E5 reranker (default `./rr_model`) |
-| `NEO4J_URI`, `NEO4J_PASSWORD` | Graph RAG | Neo4j Aura connection |
-| `DRIVE_FOLDER_ID` | Ingestion only | Google Drive folder with `.doc` / `.docx` actas |
-| `DRIVE_GRAPH_FOLDER_ID` | Graph sync only | Drive folder with graph JSON exports |
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | Your OpenAI API key (generation + LLM-as-judge). |
+| `APP_PASSWORD` | Password protecting the web UI. |
+| `GCP_BUCKET_NAME` | Google Cloud Storage bucket name. |
+| `DRIVE_FOLDER_ID` | Google Drive folder ID with the source documents. |
 
-**Demo defaults** (match production Cloud Run):
-
-```env
-RAG_MODE=cypher_transversal
-CYPHER_ROUTE=hybrid
-EMBEDDING_STYLE=e5
-RERANK_ENABLED=1
-RETRIEVAL_K=50
-TOP_N=10
-RRF_K=60
-```
-
-`RAG_MODE` options: `v1`, `v2`, `v2_table` (classic hybrid RAG), `graph_baseline`, `cypher_transversal` (Graph RAG + Neo4j). See [src/rag/config.py](src/rag/config.py) for all knobs.
+Useful retrieval knobs (see [src/rag/config.py](src/rag/config.py)): `RAG_MODE` (`v1`/`v2`/`v2_table`),
+`RETRIEVAL_K`, `TOP_N`, `RRF_K`, `RRF_MIN_SCORE`.
 
 ### 4.4 Run the demo app locally
 
-**Option A — use the prebuilt index from GCS (fastest):**
-
 ```bash
-# needs GCP_BUCKET_NAME in .env and authenticated gcloud / service account
+# (optional) download the prebuilt Chroma DB from GCS
 python src/download_db.py
 
 streamlit run src/app.py
 ```
 
-`download_db.py` pulls `chroma_db/` and `rr_model/` from GCS into the paths in `.env`.
-
-**Option B — smoke-test without the UI:**
-
-```bash
-python scripts/smoke_prod_cosora.py
-```
-
-Runs gold queries against the same index and Graph RAG pipeline as production.
-
-Open http://localhost:8501, enter `APP_PASSWORD`, and ask questions in Spanish. In the sidebar, confirm **Neo4j: Conectado** when using `cypher_transversal`. Expand **“Ver fuentes y trazabilidad”** to inspect acta chunks, Neo4j triples and Cypher.
-
 ### 4.5 Run the data ingestion (rebuild the index)
 
-Rebuilds ChromaDB + BM25 from source actas. Requires `credentials.json` (service account with Drive read access) when using `--download-drive`.
-
 ```bash
-# local docs already in data/raw/
-python src/ingest.py --chunk-strategy both
-
-# full Cloud Run Job flow: Drive → index → GCS
-python src/ingest.py --download-drive --upload-db --chunk-strategy both
+python src/ingest.py
 ```
 
-| Flag | Effect |
-|------|--------|
-| `--download-drive` | Fetch `.doc` / `.docx` from `DRIVE_FOLDER_ID` |
-| `--download-raw` | Fetch raw docs from GCS instead of Drive |
-| `--upload-db` | Upload `chroma_db/` to `GCP_BUCKET_NAME` |
-| `--chunk-strategy both` | Build `cosora_actas_e5` (recursive) + `cosora_actas_e5_v2` (table hybrid) |
+This downloads the source documents, extracts and chunks the text, builds embeddings + BM25, and writes
+the ChromaDB database.
 
-### 4.6 Sync the Knowledge Graph to Neo4j
+### 4.6 Run the experiment notebooks
 
-After graph JSON files are available (from the KG notebooks or Drive):
-
-```bash
-python src/sync_graph.py --from-drive --sync-neo4j
-# or: --from-gcs   (read graph/ prefix from GCS)
-```
-
-Cloud Run Job equivalent: [deploy/scripts/deploy_graph_sync_job.ps1](deploy/scripts/deploy_graph_sync_job.ps1).
-
-### 4.7 Deploy to GCP (optional)
-
-Serverless stack: **Cloud Build** → **Container Registry** → **Cloud Run** (demo) / **Cloud Run Jobs** (batch).
-
-| Script | What it deploys |
-|--------|-----------------|
-| [deploy/scripts/deploy.ps1](deploy/scripts/deploy.ps1) | Streamlit demo (`cosora-demo`) on Cloud Run (8 GiB RAM, 4 vCPU, `europe-west1`) |
-| [deploy/scripts/deploy_job.ps1](deploy/scripts/deploy_job.ps1) | Ingestion job (`cosora-ingest-job`): Drive → Chroma → GCS |
-| [deploy/scripts/deploy_graph_sync_job.ps1](deploy/scripts/deploy_graph_sync_job.ps1) | Graph sync job: Drive JSON → Neo4j + GCS backup |
-
-**Deploy the web app** (from repo root, with `.env` containing `OPENAI_API_KEY`, `APP_PASSWORD`, `NEO4J_URI`, `NEO4J_PASSWORD`):
-
-```powershell
-.\deploy\scripts\deploy.ps1
-```
-
-Cloud Build ([deploy/cloudbuild.yaml](deploy/cloudbuild.yaml)) downloads `chroma_db/` and `rr_model/` from GCS, bakes them into the Docker image together with `intfloat/multilingual-e5-base`, and pushes `gcr.io/<PROJECT_ID>/cosora-demo`.
-
-**Run ingestion manually after deploy:**
-
-```powershell
-gcloud run jobs execute cosora-ingest-job --region europe-west1 --wait
-```
-
-### 4.8 Experiment notebooks
-
-Experiments live in [notebooks/experiments/](notebooks/experiments/):
+The experiments live in [notebooks/experiments/](notebooks/experiments/). Open them with Jupyter:
 
 ```bash
 pip install jupyter
 jupyter notebook notebooks/experiments/
 ```
 
-| Topic | Notebook |
-|-------|----------|
+Key notebooks:
+
+| Experiment | Notebook |
+|------------|----------|
 | Query rewriting (mrBERT vs E5) | [query_pipeline_with_query_mod.ipynb](notebooks/experiments/query_pipeline_with_query_mod.ipynb) |
-| E5 reranker fine-tuning | [e5_reranker.ipynb](notebooks/e5_reranker.ipynb) |
-| KG extraction (v2) | [kg_ingest_v2.ipynb](notebooks/experiments/kg_ingest_v2.ipynb) |
-| Neo4j Graph-RAG (v2) | [neo4j_graph_rag_v2.ipynb](notebooks/experiments/neo4j_graph_rag_v2.ipynb) |
-| Graph-RAG evaluation | [graph_rag_eval_v2.ipynb](notebooks/experiments/graph_rag_eval_v2.ipynb) |
+| Rewriting + reranking | [query_pipeline_e5_rewriting_reranking.ipynb](notebooks/experiments/query_pipeline_e5_rewriting_reranking.ipynb) |
+| Knowledge Graph / Graph-RAG | [graph_rag.ipynb](notebooks/experiments/graph_rag.ipynb), [neo4j_graph_rag.ipynb](notebooks/experiments/neo4j_graph_rag.ipynb) |
 
----
+### 4.7 Deploy to GCP (optional)
 
-## 5. Experiments
+CI/CD uses Google Cloud Build and PowerShell scripts:
+
+- [deploy/scripts/deploy_job.ps1](deploy/scripts/deploy_job.ps1) — deploys the data-ingestion Job.
+- [deploy/scripts/deploy.ps1](deploy/scripts/deploy.ps1) — deploys the web app. The ~1 GB HuggingFace
+  model is pre-downloaded and baked into the Docker image to guarantee instant cold starts and avoid
+  timeout crashes.
+
+
+# 5. Experiments
 
 Each experiment is documented with **Hypothesis**, **Setup**, **Results** and **Conclusions**.
 
-### Part A — Retrieval Experiments
 
-#### Experiment 1 — Choosing the Embedding Model
+## 5.1 Retrieval experiments
+
+### Experiment 1 — Choosing the embedding model
 
 **Hypothesis.** Two Spanish/multilingual embedding models (`mrBERT` and `e5`) will differ in retrieval
 quality on the same query test set; we expect one to retrieve more relevant chunks than the other.
@@ -581,9 +582,8 @@ embedding space captures meaning beyond exact keyword matches; its higher latenc
 trade-off, so it was selected as the production embedding model. *This leads naturally to Experiment 2:
 does query rewriting further improve the chosen model?*
 
----
 
-#### Experiment 2 — Query Rewriting
+### Experiment 2 — Query rewriting
 
 **Hypothesis.** Generating semantic variants of the user query with an LLM (`gpt-4o-mini`, 3 variants
 fused via RRF) will retrieve more relevant chunks than the original query alone. We expect the effect to
@@ -635,32 +635,47 @@ The most vague query (Q3, *"incidencias más frecuentes"*) is the only one where
 because the original query lacks enough signal. *This raises a new hypothesis: can a cross-encoder reranker
 recover precision after retrieval? → Experiment 3.*
 
+
+### Experiment 3 — Reranking with a trained cross-encoder
+
+#### Setup
+
+The reranking model is built on top of a [Multilingual E5 base](https://huggingface.co/intfloat/multilingual-e5-base)) encoder, extended with a trainable MLP scoring head to enable joint query–document scoring in a cross-encoder-style architecture. The model is fine-tuned using a contrastive learning objective based on the InfoNCE loss, leveraging in-batch negatives to improve discrimination between relevant and non-relevant pairs.
+
+The training dataset is synthetically constructed from a corpus of construction-related documents. For each extracted document chunk, an LLM (gpt-4o-mini) is prompted to generate a natural-language query whose answer is contained within the chunk. This process yields aligned query–document pairs that serve as positive training examples.
+
+
+#### Dataset summary:
+
+- Epochs: 10
+- Early stopping: enabled with patience 2
+- Batch size: 12
+- Train samples 4264
+- Validation samples: 533
+- Test samples: 533
+
+#### Training results
+
+<p align="center">
+  <img src="./images/reranking_metrics_training.png" width="1400"><br>
+</p>
+
+#### Test Results
+
+- Loss: 0.0039
+- Recall@1: 1.000
+- Recall@3: 1.000
+- MRR: 1.000
+
+#### Conclusions 
+
+The reranking model achieves near-perfect performance on the synthetic evaluation benchmark, indicating that the current test distribution is not sufficiently challenging to reliably assess generalization. In particular, the absence of hard negatives—i.e., non-relevant passages that are semantically similar to the positive examples and therefore difficult to distinguish—likely leads to an overestimation of retrieval performance. Future work should incorporate such hard negatives to improve the robustness and discriminative capability of the model under more realistic retrieval conditions.
+
 ---
 
-#### Experiment 3 — Reranking with a Cross-Encoder
+## 5.2 Knowledge graph experiments
 
-**Hypothesis.** Adding a **cross-encoder reranker** (`BAAI/bge-reranker-v2-m3`) after hybrid retrieval will
-improve precision over `E5 + Query Rewriting` alone, because a cross-encoder scores each `(query, chunk)`
-pair jointly — a far more precise relevance estimate than vector similarity.
-
-**Setup.**
-- Baseline: `E5 + Query Rewriting` (Experiment 2 winner).
-- Candidate: `E5 + Query Rewriting + Reranking` (`BAAI/bge-reranker-v2-m3`).
-- Flow: `retrieve_multiquery` → fuse candidates → rerank → top-K.
-- Evaluation: LLM-as-judge (`gpt-4o-mini`), metrics P@5, AP@5, NDCG@5.
-- Notebook: [query_pipeline_e5_rewriting_reranking.ipynb](notebooks/experiments/query_pipeline_e5_rewriting_reranking.ipynb)
-
-**Results.** *Evaluation in progress* — the pipeline is implemented and the comparison harness is ready in
-the notebook above; final numbers will be added once the full run completes.
-
-**Conclusions.** *Pending results.* The expectation, based on Experiment 2, is that reranking mainly helps
-on the harder/vaguer queries where retrieval order is still suboptimal after fusion.
-
----
-
-### Part B — Knowledge Graph Experiments
-
-#### Experiment 4 — Entity & Relation Extraction (Prompting Strategy)
+### Experiment 4 — Entity & relation extraction (Pprompting strategy)
 
 **Hypothesis.** A **structured prompt** (controlled output format, domain-specific entity types, allowed
 relation list) extracts higher-quality and more consistent entities/relations than a **general prompt**.
@@ -690,9 +705,8 @@ relation list) extracts higher-quality and more consistent entities/relations th
 knowledge-extraction system*. The improvement is not only in quantity, but in the **structure and
 consistency** of the extracted knowledge — producing a far more usable graph.
 
----
 
-#### Experiment 5 — Graph Processing Pipeline (Normalization & Deduplication)
+### Experiment 5 — Graph processing pipeline (normalization & deduplication)
 
 **Hypothesis.** Parsing, cleaning, normalization and deduplication will reduce the raw triple count while
 *increasing* graph quality (less redundancy and noise) — i.e. consolidation, not data loss.
@@ -716,9 +730,8 @@ conflicting `estado` relations (most advanced state wins); duplicate triples rem
 **quality over quantity**. Deduplication is **knowledge consolidation, not information loss**, yielding a
 cleaner and more reliable graph.
 
----
 
-#### Experiment 6 — Graph QA: Cypher Queries (Content vs Database)
+### Experiment 6 — Graph QA: Cypher queries (content vs database)
 
 **Hypothesis.** The same Knowledge Graph can serve two complementary roles — as **semantic content**
 (context for LLM reasoning) and as a **structured database** (analytical counting/ranking) — and each
@@ -760,9 +773,8 @@ relationships*, analytical queries at *counting and ranking*. Graph-QA performan
 type (semantic reasoning vs. quantitative analysis), and combining both — plus an LLM to verbalize results
 — bridges structured data and human interpretation, enabling non-technical users to query the graph.
 
----
 
-## 6. Overall Conclusions
+# 6. Overall conclusions
 
 - **Retrieval:** `e5` is the better embedding model, and **`e5 + query rewriting`** is the best validated
   configuration — consistent gains with no severe degradation. `mrBERT` is faster but fragile to rewriting.
@@ -774,9 +786,8 @@ type (semantic reasoning vs. quantitative analysis), and combining both — plus
   system, enabling more precise, explainable and domain-aware question answering. This first graph is small;
   the natural next step is to build a larger graph over the full corpus.
 
----
 
-## 7. References
+# 7. References
 
 **Papers**
 
