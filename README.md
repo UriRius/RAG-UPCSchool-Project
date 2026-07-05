@@ -73,7 +73,7 @@ A **serverless architecture on Google Cloud Platform (GCP)** for low cost and hi
 3. Chunks the text, creates embeddings, and builds the ChromaDB database.
 4. Uploads the ready-to-use database to Google Cloud Storage.
 
-## 3.2 Knowledge Graph Pipeline
+## 3.2 Knowledge Graph database
 
 A graph-based information-extraction methodology that turns unstructured reports into a structured
 knowledge representation, following four stages:
