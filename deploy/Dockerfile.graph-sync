@@ -1,0 +1,20 @@
+FROM python:3.10-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY deploy/requirements-graph-sync.txt .
+RUN pip install --no-cache-dir -r requirements-graph-sync.txt
+
+COPY src/ ./src/
+
+RUN mkdir -p /app/data/graph
+
+# Drive -> Neo4j + backup GCS (mismo patron que cosora-ingest-job)
+CMD ["python", "src/sync_graph.py", "--from-drive", "--sync-neo4j", "--upload-gcs"]
