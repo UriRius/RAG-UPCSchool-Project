@@ -83,8 +83,8 @@ def _render_triples_section(graph_result: GraphRetrievalResult) -> None:
 
     viz_triples = [t for t in triples[:12] if t[0] != "__agg__"]
     if viz_triples:
-        with st.expander("Visualización del subgrafo", expanded=False):
-            render_triple_subgraph(viz_triples)
+        st.caption("**Visualización del subgrafo**")
+        render_triple_subgraph(viz_triples)
 
 
 def _render_rewrite_queries(debug: dict) -> None:
@@ -120,8 +120,8 @@ def render_sources(sources: list[dict], graph_result: GraphRetrievalResult | Non
             if bridge_txt:
                 st.caption(bridge_txt)
             if dbg.get("cypher"):
-                with st.expander("Cypher ejecutado", expanded=False):
-                    st.code(dbg["cypher"], language="cypher")
+                st.caption("**Cypher ejecutado**")
+                st.code(dbg["cypher"], language="cypher")
 
             _render_triples_section(graph_result)
 
