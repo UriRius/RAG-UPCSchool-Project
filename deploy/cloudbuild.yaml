@@ -1,20 +1,25 @@
 steps:
-  # 0. Crear el directorio destino primero (gsutil falla si no existe)
+  # 0. Crear directorios destino (gsutil falla si no existen)
   - name: 'ubuntu'
-    args: ['mkdir', '-p', './data/chroma_db']
+    args: ['bash', '-c', 'mkdir -p ./data/chroma_db ./rr_model']
     id: 'create-dirs'
 
-  # 1. Descargar la base de datos desde el Bucket de Google Cloud Storage
+  # 1. Descargar artefactos desde GCS
   - name: 'gcr.io/cloud-builders/gsutil'
     args: ['cp', '-r', 'gs://${_BUCKET_NAME}/chroma_db', './data/']
     id: 'download-chroma-db'
     waitFor: ['create-dirs']
 
-  # 2. Construir la imagen Docker usando la base de datos descargada localmente en la build
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', '-r', 'gs://${_BUCKET_NAME}/rr_model', './rr_model']
+    id: 'download-rr-model'
+    waitFor: ['create-dirs']
+
+  # 2. Construir imagen Docker
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/cosora-demo', '-f', 'deploy/Dockerfile', '.']
     id: 'build-docker-image'
-    waitFor: ['download-chroma-db']
+    waitFor: ['download-chroma-db', 'download-rr-model']
 
   # 3. Subir la imagen Docker al Container Registry
   - name: 'gcr.io/cloud-builders/docker'
