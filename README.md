@@ -17,14 +17,17 @@ knowledge extraction into engineering and construction workflows. It has two com
 # Table of Contents
 
 1. [About the Project](#1-about-the-project)
-2. [System Architecture](#2-system-architecture)
-3. [How to Run the Code](#3-how-to-run-the-code)
-4. [Experiments](#4-experiments)
+2. [System Overview](#2-system-overview)
+3. [System Architecture](#3-system-architecture)
+4. [How to Run the Code](#4-how-to-run-the-code)
+   - [4.4 Run the demo app locally](#44-run-the-demo-app-locally)
+   - [4.7 Deploy to GCP](#47-deploy-to-gcp-optional)
+5. [Experiments](#5-experiments)
    - [Part A — Retrieval](#part-a--retrieval-experiments)
    - [Part B — Knowledge Graph](#part-b--knowledge-graph-experiments)
-5. [Overall Conclusions](#5-overall-conclusions)
-6. [References](#6-references)
-7. [Deliverables](#7-deliverables)
+6. [Overall Conclusions](#6-overall-conclusions)
+7. [References](#7-references)
+8. [Deliverables](#8-deliverables)
 
 ---
 
@@ -377,11 +380,18 @@ As a result, the system supports both technical exploration and practical usage 
 
 ## 4. How to Run the Code
 
+This section covers the **Streamlit demo**, local setup, data pipelines and **GCP deployment**.
+
+**Live demo (production):** https://cosora-demo-475080291256.europe-west1.run.app/
+
 ### 4.1 Prerequisites
 
-- Python 3.10+
-- An OpenAI API key
-- (Optional, for the KG pipeline) [Ollama](https://ollama.com/) with `gemma3` pulled, and optionally Neo4j
+- **Python 3.10+**
+- **OpenAI API key** — answer generation, optional query rewriting and Cypher LLM route
+- **Prebuilt index (recommended)** — download Chroma + BM25 + reranker from GCS (see §4.4), or rebuild with `src/ingest.py`
+- **Neo4j Aura** (optional) — required for Graph RAG modes (`cypher_transversal`); classic hybrid RAG works without it
+- **GCP credentials** (optional) — only for `download_db.py`, ingestion upload and Cloud Run deploy (`gcloud` CLI + service account / ADC)
+- **Ollama + `gemma3`** (optional) — only for offline KG extraction notebooks, not for the Streamlit demo
 
 ### 4.2 Install dependencies
 
@@ -395,66 +405,134 @@ python -m venv .venv
 # macOS/Linux
 source .venv/bin/activate
 
-pip install -r Requirements.txt
+pip install -r requirements.txt
 ```
+
+> `Requirements.txt` is kept as an alias of `requirements.txt` for backward compatibility.
 
 ### 4.3 Configure environment variables
 
-Copy `.env.example` to `.env` and fill in the values:
+Copy [`.env.example`](.env.example) to `.env` and fill in the values:
 
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | Your OpenAI API key (generation + LLM-as-judge). |
-| `APP_PASSWORD` | Password protecting the web UI. |
-| `GCP_BUCKET_NAME` | Google Cloud Storage bucket name. |
-| `DRIVE_FOLDER_ID` | Google Drive folder ID with the source documents. |
+| Variable | Required for | Description |
+|----------|--------------|-------------|
+| `OPENAI_API_KEY` | Demo | LLM generation (and Cypher LLM route when enabled) |
+| `APP_PASSWORD` | Demo | Password for the Streamlit login screen |
+| `GCP_BUCKET_NAME` | Download / ingest / deploy | GCS bucket (`rag-actas-db-bucket` in production) |
+| `CHROMA_PATH` | Demo | Local path to ChromaDB (default `./data/chroma_db`) |
+| `CHROMA_COLLECTION` | Demo | Override collection name (prod uses `cosora_actas_e5`) |
+| `RR_MODEL_PATH` | Demo | Fine-tuned E5 reranker (default `./rr_model`) |
+| `NEO4J_URI`, `NEO4J_PASSWORD` | Graph RAG | Neo4j Aura connection |
+| `DRIVE_FOLDER_ID` | Ingestion only | Google Drive folder with `.doc` / `.docx` actas |
+| `DRIVE_GRAPH_FOLDER_ID` | Graph sync only | Drive folder with graph JSON exports |
 
-Useful retrieval knobs (see [src/rag/config.py](src/rag/config.py)): `RAG_MODE` (`v1`/`v2`/`v2_table`),
-`RETRIEVAL_K`, `TOP_N`, `RRF_K`, `RRF_MIN_SCORE`.
+**Demo defaults** (match production Cloud Run):
+
+```env
+RAG_MODE=cypher_transversal
+CYPHER_ROUTE=hybrid
+EMBEDDING_STYLE=e5
+RERANK_ENABLED=1
+RETRIEVAL_K=50
+TOP_N=10
+RRF_K=60
+```
+
+`RAG_MODE` options: `v1`, `v2`, `v2_table` (classic hybrid RAG), `graph_baseline`, `cypher_transversal` (Graph RAG + Neo4j). See [src/rag/config.py](src/rag/config.py) for all knobs.
 
 ### 4.4 Run the demo app locally
 
+**Option A — use the prebuilt index from GCS (fastest):**
+
 ```bash
-# (optional) download the prebuilt Chroma DB from GCS
+# needs GCP_BUCKET_NAME in .env and authenticated gcloud / service account
 python src/download_db.py
 
 streamlit run src/app.py
 ```
 
-### 4.5 Run the data ingestion (rebuild the index)
+`download_db.py` pulls `chroma_db/` and `rr_model/` from GCS into the paths in `.env`.
+
+**Option B — smoke-test without the UI:**
 
 ```bash
-python src/ingest.py
+python scripts/smoke_prod_cosora.py
 ```
 
-This downloads the source documents, extracts and chunks the text, builds embeddings + BM25, and writes
-the ChromaDB database.
+Runs gold queries against the same index and Graph RAG pipeline as production.
 
-### 4.6 Run the experiment notebooks
+Open http://localhost:8501, enter `APP_PASSWORD`, and ask questions in Spanish. In the sidebar, confirm **Neo4j: Conectado** when using `cypher_transversal`. Expand **“Ver fuentes y trazabilidad”** to inspect acta chunks, Neo4j triples and Cypher.
 
-The experiments live in [notebooks/experiments/](notebooks/experiments/). Open them with Jupyter:
+### 4.5 Run the data ingestion (rebuild the index)
+
+Rebuilds ChromaDB + BM25 from source actas. Requires `credentials.json` (service account with Drive read access) when using `--download-drive`.
+
+```bash
+# local docs already in data/raw/
+python src/ingest.py --chunk-strategy both
+
+# full Cloud Run Job flow: Drive → index → GCS
+python src/ingest.py --download-drive --upload-db --chunk-strategy both
+```
+
+| Flag | Effect |
+|------|--------|
+| `--download-drive` | Fetch `.doc` / `.docx` from `DRIVE_FOLDER_ID` |
+| `--download-raw` | Fetch raw docs from GCS instead of Drive |
+| `--upload-db` | Upload `chroma_db/` to `GCP_BUCKET_NAME` |
+| `--chunk-strategy both` | Build `cosora_actas_e5` (recursive) + `cosora_actas_e5_v2` (table hybrid) |
+
+### 4.6 Sync the Knowledge Graph to Neo4j
+
+After graph JSON files are available (from the KG notebooks or Drive):
+
+```bash
+python src/sync_graph.py --from-drive --sync-neo4j
+# or: --from-gcs   (read graph/ prefix from GCS)
+```
+
+Cloud Run Job equivalent: [deploy/scripts/deploy_graph_sync_job.ps1](deploy/scripts/deploy_graph_sync_job.ps1).
+
+### 4.7 Deploy to GCP (optional)
+
+Serverless stack: **Cloud Build** → **Container Registry** → **Cloud Run** (demo) / **Cloud Run Jobs** (batch).
+
+| Script | What it deploys |
+|--------|-----------------|
+| [deploy/scripts/deploy.ps1](deploy/scripts/deploy.ps1) | Streamlit demo (`cosora-demo`) on Cloud Run (8 GiB RAM, 4 vCPU, `europe-west1`) |
+| [deploy/scripts/deploy_job.ps1](deploy/scripts/deploy_job.ps1) | Ingestion job (`cosora-ingest-job`): Drive → Chroma → GCS |
+| [deploy/scripts/deploy_graph_sync_job.ps1](deploy/scripts/deploy_graph_sync_job.ps1) | Graph sync job: Drive JSON → Neo4j + GCS backup |
+
+**Deploy the web app** (from repo root, with `.env` containing `OPENAI_API_KEY`, `APP_PASSWORD`, `NEO4J_URI`, `NEO4J_PASSWORD`):
+
+```powershell
+.\deploy\scripts\deploy.ps1
+```
+
+Cloud Build ([deploy/cloudbuild.yaml](deploy/cloudbuild.yaml)) downloads `chroma_db/` and `rr_model/` from GCS, bakes them into the Docker image together with `intfloat/multilingual-e5-base`, and pushes `gcr.io/<PROJECT_ID>/cosora-demo`.
+
+**Run ingestion manually after deploy:**
+
+```powershell
+gcloud run jobs execute cosora-ingest-job --region europe-west1 --wait
+```
+
+### 4.8 Experiment notebooks
+
+Experiments live in [notebooks/experiments/](notebooks/experiments/):
 
 ```bash
 pip install jupyter
 jupyter notebook notebooks/experiments/
 ```
 
-Key notebooks:
-
-| Experiment | Notebook |
-|------------|----------|
+| Topic | Notebook |
+|-------|----------|
 | Query rewriting (mrBERT vs E5) | [query_pipeline_with_query_mod.ipynb](notebooks/experiments/query_pipeline_with_query_mod.ipynb) |
-| Rewriting + reranking | [query_pipeline_e5_rewriting_reranking.ipynb](notebooks/experiments/query_pipeline_e5_rewriting_reranking.ipynb) |
-| Knowledge Graph / Graph-RAG | [graph_rag.ipynb](notebooks/experiments/graph_rag.ipynb), [neo4j_graph_rag.ipynb](notebooks/experiments/neo4j_graph_rag.ipynb) |
-
-### 4.7 Deploy to GCP (optional)
-
-CI/CD uses Google Cloud Build and PowerShell scripts:
-
-- [deploy/scripts/deploy_job.ps1](deploy/scripts/deploy_job.ps1) — deploys the data-ingestion Job.
-- [deploy/scripts/deploy.ps1](deploy/scripts/deploy.ps1) — deploys the web app. The ~1 GB HuggingFace
-  model is pre-downloaded and baked into the Docker image to guarantee instant cold starts and avoid
-  timeout crashes.
+| E5 reranker fine-tuning | [e5_reranker.ipynb](notebooks/e5_reranker.ipynb) |
+| KG extraction (v2) | [kg_ingest_v2.ipynb](notebooks/experiments/kg_ingest_v2.ipynb) |
+| Neo4j Graph-RAG (v2) | [neo4j_graph_rag_v2.ipynb](notebooks/experiments/neo4j_graph_rag_v2.ipynb) |
+| Graph-RAG evaluation | [graph_rag_eval_v2.ipynb](notebooks/experiments/graph_rag_eval_v2.ipynb) |
 
 ---
 
@@ -718,7 +796,7 @@ type (semantic reasoning vs. quantitative analysis), and combining both — plus
 
 ---
 
-## 78. Deliverables
+## 8. Deliverables
 
 - **Final Report:** this README (the official Final Report of the project).
 - **Slides:** submitted as an official deliverable. The presentation's front slide links to this

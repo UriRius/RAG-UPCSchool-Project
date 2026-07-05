@@ -79,3 +79,5 @@ scripts/analyze_*.py
 scripts/check_chunk_alignment.py
 scripts/drive_phase0_*.py
 scripts/sync_tristan_*.py
+
+docs/slides/*

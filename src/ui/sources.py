@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import streamlit as st
 
 from rag.graph import GraphRetrievalResult
@@ -65,7 +67,11 @@ def _render_chunk(source: dict, *, rank: int | None = None) -> None:
     st.text(_chunk_text(source["text"]))
 
 
-def _render_triples_section(graph_result: GraphRetrievalResult) -> None:
+def _render_triples_section(
+    graph_result: GraphRetrievalResult,
+    *,
+    fetch_viz_subgraph: Callable[[list[tuple[str, str, str]], int], list[tuple[str, str, str]]] | None = None,
+) -> None:
     triples = graph_result.triples
     if not triples:
         return
@@ -81,10 +87,27 @@ def _render_triples_section(graph_result: GraphRetrievalResult) -> None:
     if len(triples) > 8:
         st.caption(f"... y {len(triples) - 8} más")
 
-    viz_triples = [t for t in triples[:12] if t[0] != "__agg__"]
+    base_viz = [t for t in triples if t[0] != "__agg__"]
+    if not base_viz:
+        return
+
+    hops = 2
+    if fetch_viz_subgraph:
+        hops = st.radio(
+            "Profundidad del subgrafo",
+            options=[1, 2, 3],
+            index=1,
+            format_func=lambda n: f"{n} salto (solo consulta)" if n == 1 else f"{n} saltos",
+            horizontal=True,
+            key=f"viz_hops_{hash(tuple(base_viz[:5])) & 0xFFFFFFFF}",
+        )
+        viz_triples = fetch_viz_subgraph(base_viz, hops)
+    else:
+        viz_triples = base_viz[:40]
+
     if viz_triples:
-        st.caption("**Visualización del subgrafo**")
-        render_triple_subgraph(viz_triples)
+        st.caption(f"**Visualización del subgrafo** · {len(viz_triples)} relaciones · {hops} salto(s)")
+        render_triple_subgraph(viz_triples, max_edges=len(viz_triples))
 
 
 def _render_rewrite_queries(debug: dict) -> None:
@@ -98,7 +121,12 @@ def _render_rewrite_queries(debug: dict) -> None:
         st.text(f"  {i}. {q}")
 
 
-def render_sources(sources: list[dict], graph_result: GraphRetrievalResult | None = None) -> None:
+def render_sources(
+    sources: list[dict],
+    graph_result: GraphRetrievalResult | None = None,
+    *,
+    fetch_viz_subgraph: Callable[[list[tuple[str, str, str]], int], list[tuple[str, str, str]]] | None = None,
+) -> None:
     if not sources:
         return
 
@@ -123,7 +151,7 @@ def render_sources(sources: list[dict], graph_result: GraphRetrievalResult | Non
                 st.caption("**Cypher ejecutado**")
                 st.code(dbg["cypher"], language="cypher")
 
-            _render_triples_section(graph_result)
+            _render_triples_section(graph_result, fetch_viz_subgraph=fetch_viz_subgraph)
 
             graph_hits: list[dict] = dbg.get("graph_hits") or []
             if not graph_hits:

@@ -56,6 +56,76 @@ def fetch_graph_overview(driver: Driver) -> dict:
     return overview
 
 
+def _triples_from_rows(rows: list[dict]) -> list[tuple[str, str, str]]:
+    return [(row["subject"], row["predicate"] or "?", row["object"]) for row in rows]
+
+
+def _seed_entities_from_triples(
+    triples: list[tuple[str, str, str]], *, max_seeds: int = 4
+) -> list[str]:
+    from collections import Counter
+
+    counts: Counter[str] = Counter()
+    for subject, _, obj in triples:
+        if subject != "__agg__":
+            counts[subject] += 1
+            counts[obj] += 1
+    return [name for name, _ in counts.most_common(max_seeds)]
+
+
+def fetch_subgraph_for_viz(
+    driver: Driver,
+    triples: list[tuple[str, str, str]],
+    *,
+    hops: int = 2,
+    limit: int = 50,
+    max_seeds: int = 4,
+) -> list[tuple[str, str, str]]:
+    """
+    Triples de la consulta + vecindario Neo4j (1–3 saltos) para visualización.
+    """
+    base = [(s, p, o) for s, p, o in triples if s != "__agg__"]
+    hops = max(1, min(3, int(hops)))
+    if hops <= 1 or not base:
+        return base[:limit]
+
+    seeds = _seed_entities_from_triples(base, max_seeds=max_seeds)
+    if not seeds:
+        return base[:limit]
+
+    rows = run_query(
+        driver,
+        f"""
+        UNWIND $seeds AS seed
+        MATCH (e:Entity)
+        WHERE toLower(coalesce(e.name, '')) = toLower(seed)
+           OR e.norm = toLower(seed)
+           OR toLower(coalesce(e.name, '')) CONTAINS toLower(seed)
+        WITH collect(DISTINCT e) AS centers
+        UNWIND centers AS e
+        MATCH p = (e)-[:RELATED*1..{hops}]-(n:Entity)
+        UNWIND relationships(p) AS rel
+        WITH DISTINCT startNode(rel) AS s, rel, endNode(rel) AS t
+        RETURN coalesce(s.name, s.norm) AS subject,
+               rel.predicate AS predicate,
+               coalesce(t.name, t.norm) AS object
+        LIMIT $limit
+        """,
+        seeds=seeds,
+        limit=limit,
+    )
+
+    seen: set[tuple[str, str, str]] = set()
+    merged: list[tuple[str, str, str]] = []
+    for triple in base + _triples_from_rows(rows):
+        if triple not in seen:
+            seen.add(triple)
+            merged.append(triple)
+        if len(merged) >= limit:
+            break
+    return merged
+
+
 def fetch_ego_network(driver: Driver, query: str, *, limit: int = 24) -> list[tuple[str, str, str]]:
     """
     Subgrafo 1-hop alrededor de la primera entidad que coincida con `query`.
@@ -83,7 +153,7 @@ def fetch_ego_network(driver: Driver, query: str, *, limit: int = 24) -> list[tu
         q=q,
         limit=limit,
     )
-    return [(row["subject"], row["predicate"] or "?", row["object"]) for row in rows]
+    return _triples_from_rows(rows)
 
 
 def fetch_batch_hubs(driver: Driver, batch: str, *, limit: int = 8) -> list[dict]:

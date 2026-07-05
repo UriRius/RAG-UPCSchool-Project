@@ -23,7 +23,7 @@ from rag.bm25_index import BM25Log1, load_or_build_bm25
 from rag.embeddings import E5Embedder
 from rag.graph import GraphRetrievalResult, retrieve_graph
 from rag.graph.neo4j_client import get_driver, neo4j_configured
-from rag.graph.stats import fetch_graph_overview, fetch_ego_network, fetch_batch_hubs
+from rag.graph.stats import fetch_graph_overview, fetch_ego_network, fetch_batch_hubs, fetch_subgraph_for_viz
 from rag.graph.prompts import build_graph_prompt
 from rag.query_rewrite import hybrid_retrieve
 from rag.retrieval import normalize_meta, retrieve
@@ -189,6 +189,23 @@ def load_ego_triples(entity_query: str) -> list[tuple[str, str, str]]:
     except Exception:
         logger.exception("Ego network failed for %r", entity_query)
         return []
+
+
+@st.cache_data(ttl=120)
+def load_viz_subgraph(triples_key: tuple[tuple[str, str, str], ...], hops: int) -> list[tuple[str, str, str]]:
+    triples = list(triples_key)
+    if not neo4j_configured() or not triples:
+        return triples
+    try:
+        driver = load_neo4j_driver()
+        return fetch_subgraph_for_viz(driver, triples, hops=hops)
+    except Exception:
+        logger.exception("Viz subgraph expansion failed (hops=%s)", hops)
+        return triples
+
+
+def fetch_viz_subgraph(triples: list[tuple[str, str, str]], hops: int) -> list[tuple[str, str, str]]:
+    return load_viz_subgraph(tuple(triples), hops)
 
 
 @st.cache_data(ttl=300)
@@ -443,7 +460,11 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
         if "sources" in message:
-            render_sources(message["sources"], message.get("graph_result"))
+            render_sources(
+                message["sources"],
+                message.get("graph_result"),
+                fetch_viz_subgraph=fetch_viz_subgraph if neo4j_configured() else None,
+            )
 
 if prompt := st.chat_input("Ej: ¿Qué incidencias hay sobre el talud?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -454,7 +475,11 @@ if prompt := st.chat_input("Ej: ¿Qué incidencias hay sobre el talud?"):
         with st.spinner("Consultando grafo y actas..."):
             answer, sources, graph_result = ask_cosora(prompt, settings)
             st.markdown(answer)
-            render_sources(sources, graph_result)
+            render_sources(
+                sources,
+                graph_result,
+                fetch_viz_subgraph=fetch_viz_subgraph if neo4j_configured() else None,
+            )
 
     st.session_state.messages.append(
         {
