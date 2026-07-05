@@ -108,7 +108,7 @@ The outputs of semantic and lexical retrieval are combined by the **Rank Fusion 
 
 $$
 \begin{aligned}
-&RRF = \frac{1}{R_{\text{semantic}}} + \frac{1}{R_{\text{lexical}}}\\[1.2em]
+&RRF = \frac{1}{R_{\text{semantic}}} + \frac{1}{R_{\text{lexical}}}\\
 &LSF = \alpha S^N_{\text{sem}} + (1-\alpha) S^N_{\text{lex}}\, ; \qquad
 S^N_{\text{sem}} = \frac{S_{\text{sem}}(D)-S^{\text{m}}_{\text{sem}}(D)}
 {S^{\text{M}}_{\text{sem}}(D)-S^{\text{m}}_{\text{sem}}(D)}\, ; \qquad
@@ -117,7 +117,7 @@ S^N_{\text{lex}} = \frac{S_{\text{lex}}(D)-S^{\text{m}}_{\text{lex}}(D)}
 \end{aligned}
 $$
 
-Finally, the top-_k chunks retrieved by the hybrid retrieval stage are passed to a reranking model trained to estimate query–document relevance. This reranking stage constitutes the final step of the Retrieval Subsystem and refines the initial ranking, improving precision and producing the final ordered set of chunks used as context for downstream generation.
+Finally, the top-_k_ chunks retrieved by the hybrid retrieval stage are passed to a reranking model trained to estimate query–document relevance. This reranking stage constitutes the final step of the Retrieval Subsystem and refines the initial ranking, improving precision and producing the final ordered set of chunks used as context for downstream generation.
 
 This module is demonstrated in `hybrid_retrieval.ipynb`.
 
@@ -125,7 +125,7 @@ This module is demonstrated in `hybrid_retrieval.ipynb`.
 
 Although the hybrid retrieval stage efficiently identifies a set of potentially relevant candidate chunks, the similarity scores produced by dense and lexical retrieval provide only an indirect approximation of document relevance. Dense retrieval estimates relevance through embedding similarity, whereas lexical retrieval relies on exact term matching and BM25 scoring. While both approaches are highly effective for candidate generation, neither explicitly models the interactions between the query and the retrieved document. Consequently, the highest-ranked chunks are not always the most relevant ones for answering the user's query.
 
-To address this limitation, the retrieved top-_k candidate chunks are passed to a cross-encoder reranker. Unlike bi-encoders, which encode queries and documents independently before comparing their vector representations, a cross-encoder jointly encodes the query and the document as a single input sequence. This allows the Transformer's attention mechanism to explicitly model interactions between tokens from both texts and directly estimate document relevance rather than approximating it through embedding similarity. As a result, cross-encoders typically produce substantially more accurate relevance estimates, making them the standard choice for the reranking stage of modern retrieval systems.
+To address this limitation, the retrieved top-_k_ candidate chunks are passed to a cross-encoder reranker. Unlike bi-encoders, which encode queries and documents independently before comparing their vector representations, a cross-encoder jointly encodes the query and the document as a single input sequence. This allows the Transformer's attention mechanism to explicitly model interactions between tokens from both texts and directly estimate document relevance rather than approximating it through embedding similarity. As a result, cross-encoders typically produce substantially more accurate relevance estimates, making them the standard choice for the reranking stage of modern retrieval systems.
 
 Although pretrained cross-encoders specifically designed for reranking, such as those of the BGE family, could have been adopted directly, this work instead constructs a task-specific reranker by extending the same multilingual E5 encoder used during the retrieval stage with an MLP scoring head. During fine-tuning, only the last two Transformer layers of the encoder and the scoring head are updated, while all remaining encoder parameters remain frozen. This design preserves architectural consistency across retrieval and reranking, allowing both stages to rely on the same multilingual semantic representations while adapting the model to the notion of relevance required by the target domain. At the same time, restricting training to a small subset of the parameters significantly reduces computational cost and the risk of overfitting, making the approach both efficient and well suited to domain-specific reranking.
 
