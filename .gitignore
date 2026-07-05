@@ -65,3 +65,8 @@ docs/experiments/*.md
 # Scratch
 scratch_outputs.txt
 *_notebooks.py
+tmp_*
+scripts/_*
+
+# Model weights (serve from GCS)
+rr_model/*.pt
