@@ -9,17 +9,18 @@ Developed for **UPCSchool**, this project demonstrates how Retrieval-Augmented G
 
 # Table of Contents
 
-1. [About the project](#1-about-the-project)
-2. [System architecture](#2-system-architecture)
+1. [About the project](#1.-about-the-project)
+2. [System overview](#2.-system-overview)
+3. [System architecture](#3.-system-architecture)
    - [Retrieval pipeline](#3.1-rag-retrieval-pipeline)
    - [Knowledge graph pipeline](#3.2-knowledge-graph-pipeline)
-3. [How to run the code](#3-how-to-run-the-code)
-4. [Experiments](#4-experiments)
-   - [Retrieval](#retrieval-experiments)
-   - [Knowledge graph](#knowledge-graph-experiments)
-5. [Overall conclusions](#5-overall-conclusions)
-6. [References](#6-references)
-7. [Deliverables](#7-deliverables)
+4. [How to run the code](#4.-how-to-run-the-code)
+5. [Experiments](#5.-experiments)
+   - [Retrieval](#5.1-retrieval-experiments)
+   - [Knowledge graph](#5.2-knowledge-graph-experiments)
+6. [Overall conclusions](#6.-overall-conclusions)
+7. [References](#7.-references)
+8. [Deliverables](#8.-deliverables)
 
 
 # 1. About the project
