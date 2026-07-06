@@ -9,9 +9,10 @@
 
 **Final project - UPCSchool** · [Repository](https://github.com/UriRius/RAG-UPCSchool-Project)
 
-This project demonstrates how **Retrieval-Augmented Generation (RAG)** and **knowledge graph**
-techniques extract and retrieve information from construction site visit reports (*"actas de obra"*),
-enabling natural-language questions backed by the official documents.
+This project demonstrates a hybrid **Retrieval-Augmented Generation (RAG)** and **knowledge graph**
+system for construction site visit reports (*"actas de obra"*). It indexes the official documents,
+retrieves relevant passages and graph relationships at query time, and generates natural-language
+answers grounded in the source actas.
 
 # Table of Contents
 
