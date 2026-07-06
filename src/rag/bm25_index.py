@@ -49,8 +49,15 @@ class BM25Log1(BM25Okapi):
         with Path(path).open("r", encoding="utf-8") as f:
             data = json.load(f)
 
+        chunk_ids = data.get("chunk_ids")
+        if not isinstance(chunk_ids, list):
+            raise ValueError(
+                f"bm25.json inválido en {path}: chunk_ids debe ser lista, "
+                f"no {type(chunk_ids).__name__}"
+            )
+
         bm25 = cls.__new__(cls)
-        bm25.chunk_ids = data["chunk_ids"]
+        bm25.chunk_ids = chunk_ids
         bm25.idf = {k: float(v) for k, v in data["idf"].items()}
         bm25.doc_freqs = data["doc_freqs"]
         bm25.doc_len = data["doc_len"]
@@ -76,14 +83,24 @@ def load_or_build_bm25(
 ) -> BM25Log1:
     from rag.config import bm25_path
 
+    if not isinstance(documents, list):
+        raise TypeError(
+            f"documents debe ser list[str], recibido {type(documents).__name__}"
+        )
+
     path = bm25_file or bm25_path(chroma_path)
     if Path(path).is_file():
-        bm25 = BM25Log1.load(path)
-        if len(bm25.chunk_ids) == len(documents):
+        try:
+            bm25 = BM25Log1.load(path)
+        except (ValueError, KeyError, json.JSONDecodeError) as exc:
+            if logger:
+                logger.warning("bm25.json corrupto (%s); reconstruyendo.", exc)
+            bm25 = None
+        if bm25 is not None and len(bm25.chunk_ids) == len(documents):
             if logger:
                 logger.info("BM25 cargado desde %s (%d docs)", path, len(bm25.chunk_ids))
             return bm25
-        if logger:
+        if logger and bm25 is not None:
             logger.warning(
                 "bm25.json desincronizado (%d vs %d chunks); reconstruyendo.",
                 len(bm25.chunk_ids),

@@ -9,50 +9,30 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-from rag.config import bm25_path, CHROMA_PATH
+from rag.config import CHROMA_PATH, RR_MODEL_PATH
+from rag.io.gcs import download_folder_from_gcs
 
-def download_folder_from_gcs(bucket_name, source_folder, destination_folder):
-    """Descarga una carpet completa desde un bucket de GCS a un directorio local."""
+GCS_CHROMA_PREFIX = "chroma_db"
+GCS_RR_MODEL_PREFIX = "rr_model"
+
+
+def download_bm25_from_gcs(bucket_name, chroma_path):
+    """Descarga bm25.json si existe en el prefijo chroma_db."""
+    filename = "bm25.json"
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
-        blobs = bucket.list_blobs(prefix=source_folder)
-
-        count = 0
-        for blob in blobs:
-            if blob.name.endswith("/"):
-                continue
-
-            relative_path = os.path.relpath(blob.name, source_folder)
-            local_path = os.path.join(destination_folder, relative_path)
-
-            os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            blob.download_to_filename(local_path)
-            count += 1
-
-        logging.info(f"✅ Descarga completada: {count} archivos descargados a {destination_folder}.")
+        blob = bucket.blob(f"{GCS_CHROMA_PREFIX}/{filename}")
+        if not blob.exists():
+            logging.warning("%s no encontrado en gs://%s/%s/", filename, bucket_name, GCS_CHROMA_PREFIX)
+            return
+        dest = os.path.join(chroma_path, filename)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        blob.download_to_filename(dest)
+        logging.info("✅ %s descargado a %s", filename, dest)
     except Exception as e:
-        logging.error(f"❌ Error descargando la base de datos de GCS: {e}")
-        logging.error("Asegúrate de que estás autenticado con 'gcloud auth application-default login'")
+        logging.warning("No se pudo descargar %s: %s", filename, e)
 
-def download_bm25_from_gcs(bucket_name, chroma_path):
-    """Descarga bm25.json y bm25_v2.json si existen en el prefijo chroma_db."""
-    from rag.config import BM25_FILENAME, BM25_FILENAME_V2
-
-    for filename in (BM25_FILENAME, BM25_FILENAME_V2):
-        try:
-            storage_client = storage.Client()
-            bucket = storage_client.bucket(bucket_name)
-            blob = bucket.blob(f"chroma_db/{filename}")
-            if not blob.exists():
-                logging.warning("%s no encontrado en gs://%s/chroma_db/", filename, bucket_name)
-                continue
-            dest = os.path.join(chroma_path, filename)
-            os.makedirs(os.path.dirname(dest), exist_ok=True)
-            blob.download_to_filename(dest)
-            logging.info("✅ %s descargado a %s", filename, dest)
-        except Exception as e:
-            logging.warning("No se pudo descargar %s: %s", filename, e)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
@@ -63,8 +43,14 @@ if __name__ == "__main__":
         logging.error("La variable GCP_BUCKET_NAME no está configurada en el archivo .env")
         exit(1)
 
-    destination = os.getenv("CHROMA_PATH", CHROMA_PATH)
+    chroma_dest = os.getenv("CHROMA_PATH", CHROMA_PATH)
+    rr_dest = os.getenv("RR_MODEL_PATH", RR_MODEL_PATH)
 
-    logging.info(f"Iniciando descarga de ChromaDB desde gs://{BUCKET_NAME}/chroma_db ...")
-    download_folder_from_gcs(BUCKET_NAME, "chroma_db", destination)
-    download_bm25_from_gcs(BUCKET_NAME, destination)
+    logging.info("Descargando Chroma desde gs://%s/%s ...", BUCKET_NAME, GCS_CHROMA_PREFIX)
+    download_folder_from_gcs(BUCKET_NAME, GCS_CHROMA_PREFIX, chroma_dest)
+    download_bm25_from_gcs(BUCKET_NAME, chroma_dest)
+
+    logging.info("Descargando reranker desde gs://%s/%s ...", BUCKET_NAME, GCS_RR_MODEL_PREFIX)
+    download_folder_from_gcs(BUCKET_NAME, GCS_RR_MODEL_PREFIX, rr_dest)
+
+    logging.info("✅ Artefactos listos en %s y %s", chroma_dest, rr_dest)
